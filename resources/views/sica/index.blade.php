@@ -691,8 +691,27 @@ function renderListaOrientadores() {
  $('#lista-orientadores-actual').html('<b>Orientadores dados de alta:</b> ' + db.orientadores.map(o => {
  const asignado = Object.entries(db.horarios).find(([k,v]) => v.orientadorId === o.id);
  const etiqueta = asignado ? ' (Grado ' + asignado[0].split('-')[0] + ', Grupo ' + asignado[0].split('-')[1] + ')' : ' (sin grupo)';
- return esc(o.nombre) + etiqueta;
- }).join(', '));
+ return '<span class="d-inline-flex align-items-center gap-1 me-3 mb-1">' + esc(o.nombre) + etiqueta +
+ ' <button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-1" title="Eliminar orientador"><i class="fa-solid fa-trash"></i></button></span>';
+ }).join(''));
+}
+/* Elimina un orientador del servidor y de este navegador. Sus grupos quedan "sin asignar". Solo Control Escolar. */
+function eliminarOrientador(id) {
+ if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede eliminar orientadores.'); return; }
+ const o = db.orientadores.find(x => x.id === id); if (!o) return;
+ const grupos = Object.entries(db.horarios).filter(([k, v]) => v.orientadorId === id).map(([k]) => 'Grado ' + k.split('-')[0] + ' Grupo ' + k.split('-')[1]);
+ if (!confirm('¿Eliminar a ' + o.nombre + '?' + (grupos.length ? '\nSe quitará de: ' + grupos.join(', ') + ' (quedará sin orientador).' : '') + '\nEsta acción no se puede deshacer.')) return;
+ fetch('/api/sica/sync', {
+ method: 'POST',
+ headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+ body: JSON.stringify({accion:'eliminar_orientador', datos:{nombre:o.nombre}})
+ }).then(r => {
+ if (!r.ok) return Promise.reject();
+ db.orientadores = db.orientadores.filter(x => x.id !== id);
+ Object.values(db.horarios).forEach(h => { if (h.orientadorId === id) h.orientadorId = ''; });
+ localStorage.setItem(LS, JSON.stringify(db));
+ renderListaOrientadores(); poblarSelectOrientadorHorario(); renderTabla();
+ }).catch(() => alert('No se pudo eliminar en el servidor. Revisa tu conexión e inténtalo de nuevo.'));
 }
 /* Grupos que le corresponden a un orientador, según lo que asignó Control Escolar */
 function calcularGruposOrientador(orientadorId) {

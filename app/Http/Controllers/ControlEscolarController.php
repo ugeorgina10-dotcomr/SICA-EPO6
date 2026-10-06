@@ -29,6 +29,7 @@ class ControlEscolarController extends Controller
             'guardar_todo'         => $this->guardarTodo($validado['datos']),
             'registrar_asistencia' => $this->registrarAsistencia($validado['datos']),
             'eliminar_alumno'      => $this->eliminarAlumno($validado['datos']),
+            'eliminar_orientador'  => $this->eliminarOrientador($validado['datos']),
             default                => response()->json(['ok' => false, 'mensaje' => 'Acción no reconocida'], 400),
         };
     }
@@ -164,6 +165,21 @@ class ControlEscolarController extends Controller
         }
 
         // Si no existía en el servidor, también es correcto: el navegador lo quita de su lista
+        return response()->json(['ok' => true]);
+    }
+
+    /** Elimina un orientador (por nombre) y deja sin orientador los grupos que tenía asignados */
+    private function eliminarOrientador(array $d): JsonResponse
+    {
+        $orientador = Orientador::where('nombre', $d['nombre'] ?? '')->first();
+
+        if ($orientador) {
+            DB::transaction(function () use ($orientador) {
+                Grupo::where('orientador_id', $orientador->id)->update(['orientador_id' => null]);
+                $orientador->delete();
+            });
+        }
+
         return response()->json(['ok' => true]);
     }
 
