@@ -35,8 +35,10 @@ class ControlEscolarController extends Controller
     }
 
     /**
-     * Reemplaza la plantilla oficial (frente o reverso) en public/img.
-     * El JS ya envía el archivo convertido a PNG en el campo "archivo".
+     * Reemplaza la plantilla oficial (frente o reverso) de un turno en public/img.
+     * El JS envía el archivo convertido a PNG en "archivo" y el turno en "turno".
+     * Guarda: plantillamatutinofrente.png, plantillamatutinoreverso.png,
+     *         plantillavespertinofrente.png, plantillavespertinoreverso.png
      */
     public function plantillaOficial(Request $request, string $lado): JsonResponse
     {
@@ -44,10 +46,11 @@ class ControlEscolarController extends Controller
 
         $request->validate([
             'archivo' => 'required|file|mimes:png|max:5120',
+            'turno'   => 'required|in:Matutino,Vespertino',
         ]);
 
         $carpeta = public_path('img');
-        $nombre  = 'plantilla' . $lado . '.png';   // plantillafrente.png / plantillareverso.png
+        $nombre  = 'plantilla' . strtolower($request->input('turno')) . $lado . '.png';
         $destino = $carpeta . DIRECTORY_SEPARATOR . $nombre;
 
         // Respaldo del diseño vigente, para poder volver atrás
@@ -92,13 +95,15 @@ class ControlEscolarController extends Controller
         $grupos = Grupo::all()->keyBy('id');
         $asist  = Asistencia::all()->groupBy('alumno_id');
 
+        // Clave de horario: "Turno-grado-grupo" (ej. "Vespertino-1-2")
         $horarios = [];
         foreach ($grupos as $g) {
             if (!$g->hora_entrada && !$g->hora_salida && !$g->orientador_id) {
                 continue;
             }
             $partes = explode(' ', $g->nombre);
-            $horarios[$g->grado . '-' . end($partes)] = [
+            $turno  = $g->turno ?: 'Matutino';
+            $horarios[$turno . '-' . $g->grado . '-' . end($partes)] = [
                 'entrada'      => $g->hora_entrada ? substr($g->hora_entrada, 0, 5) : '',
                 'salida'       => $g->hora_salida ? substr($g->hora_salida, 0, 5) : '',
                 'orientadorId' => $g->orientador_id ? (string) $g->orientador_id : '',
@@ -204,12 +209,24 @@ class ControlEscolarController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** claveGrupo "grado-grupo" (ej. "1-2") -> [grado, grupo, "1° 2"] */
+    /**
+     * Clave de grupo -> [grado, grupo, "1° 2", turno]
+     * Acepta "Vespertino-1-2" (nueva) y "1-2" (formato anterior, se toma como Matutino).
+     */
     private function datosDeClave(string $clave): array
     {
-        [$grado, $grupo] = explode('-', $clave);
+        $p = explode('-', $clave);
 
-        return [(int) $grado, (int) $grupo, $grado . '° ' . $grupo];
+        if (count($p) === 2) {
+            $turno = 'Matutino';
+            [$grado, $grupo] = $p;
+        } else {
+            [$turno, $grado, $grupo] = $p;
+        }
+
+        $turno = ($turno === 'Vespertino') ? 'Vespertino' : 'Matutino';
+
+        return [(int) $grado, (int) $grupo, $grado . '° ' . $grupo, $turno];
     }
 
     /** Guarda la lista de orientadores y devuelve un mapa id-del-JS -> id-real-de-la-BD */
@@ -229,14 +246,13 @@ class ControlEscolarController extends Controller
         return $mapa;
     }
 
-    /** Horario límite de entrada/salida y orientador asignado por grupo */
+    /** Horario límite de entrada/salida y orientador asignado por grupo Y turno */
     private function guardarHorarios(array $horarios, array $mapaOrientadores): void
     {
         foreach ($horarios as $clave => $h) {
-            [$grado, , $nombre] = $this->datosDeClave($clave);
+            [$grado, , $nombre, $turno] = $this->datosDeClave($clave);
 
-            $grupo = Grupo::firstOrNew(['grado' => $grado, 'nombre' => $nombre]);
-            $grupo->turno = $grupo->turno ?: 'Matutino';
+            $grupo = Grupo::firstOrNew(['grado' => $grado, 'nombre' => $nombre, 'turno' => $turno]);
             $grupo->hora_entrada = $h['entrada'] ?? null;
             $grupo->hora_salida = $h['salida'] ?? null;
             $grupo->orientador_id = (!empty($h['orientadorId']) && isset($mapaOrientadores[$h['orientadorId']]))
@@ -246,14 +262,13 @@ class ControlEscolarController extends Controller
         }
     }
 
-    /** Plantillas (frente/reverso) propias de cada grupo */
+    /** Plantillas (frente/reverso) propias de cada grupo (opcional, ya casi no se usa) */
     private function guardarPlantillas(array $plantillas): void
     {
         foreach ($plantillas as $clave => $p) {
-            [$grado, , $nombre] = $this->datosDeClave($clave);
+            [$grado, , $nombre, $turno] = $this->datosDeClave($clave);
 
-            $grupo = Grupo::firstOrNew(['grado' => $grado, 'nombre' => $nombre]);
-            $grupo->turno = $grupo->turno ?: 'Matutino';
+            $grupo = Grupo::firstOrNew(['grado' => $grado, 'nombre' => $nombre, 'turno' => $turno]);
 
             if (!empty($p['frente']['img'])) {
                 $grupo->plantilla_frente = $p['frente']['img'];
@@ -271,16 +286,12 @@ class ControlEscolarController extends Controller
     {
         foreach ($alumnos as $a) {
             $nombreGrupo = $a['grado'] . '° ' . $a['grupo'];
+            $turno       = (($a['turno'] ?? '') === 'Vespertino') ? 'Vespertino' : 'Matutino';
 
+            // El grupo se identifica por grado + nombre + TURNO, así 1° 1 matutino y 1° 1 vespertino son distintos
             $grupo = Grupo::firstOrCreate(
-                ['grado' => $a['grado'], 'nombre' => $nombreGrupo],
-                ['turno' => $a['turno'] ?? 'Matutino']
+                ['grado' => $a['grado'], 'nombre' => $nombreGrupo, 'turno' => $turno]
             );
-
-            if (!empty($a['turno']) && $grupo->turno !== $a['turno']) {
-                $grupo->turno = $a['turno'];
-                $grupo->save();
-            }
 
             // Tu tabla exige matrícula única y obligatoria: sin CURP el alumno
             // todavía no se guarda en la BD (sigue viendo bien en el navegador).

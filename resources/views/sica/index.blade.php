@@ -173,7 +173,14 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <!-- ===== PLANTILLA OFICIAL DE CREDENCIALES (solo Control Escolar, dentro del Portal del Alumno) ===== -->
  <div id="bloque-plantilla-oficial" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-id-card me-2"></i> Plantilla Oficial de Credenciales</h6>
- <p class="text-muted small mb-3">Reemplaza el diseño oficial (frente y reverso) para <b>todos los grupos</b>. La imagen debe conservar las mismas proporciones y la misma distribución que la actual (frente 797×541, reverso 930×575 px, o mayor con la misma proporción) para que nombre, CURP, grado, grupo, turno y QR caigan en su lugar.</p>
+ <p class="text-muted small mb-3">Reemplaza el diseño oficial (frente y reverso) para <b>todos los grupos del turno elegido</b>. Cada turno tiene su propia plantilla (cambia el C.C.T.). La imagen debe conservar las mismas proporciones y la misma distribución que la actual (frente 797×541, reverso 930×575 px, o mayor con la misma proporción) para que nombre, CURP, grado, grupo, turno y QR caigan en su lugar.</p>
+ <div class="mb-3" style="max-width:260px">
+ <label class="form-label small">Turno de la plantilla</label>
+ <select id="sel-turno-plantilla" class="form-select form-select-sm" onchange="refrescarPreviewPlantillaOficial()">
+ <option value="Matutino" selected>Matutino</option>
+ <option value="Vespertino">Vespertino</option>
+ </select>
+ </div>
  <div class="row g-3">
  <div class="col-md-6">
  <label class="form-label small">Frente (.png/.jpg)</label>
@@ -201,7 +208,11 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  
  <div class="text-center p-4 bg-light rounded-4 border mb-3">
  <h5 class="fw-bold text-uppercase mb-2" style="color:#800020">Credencial digital con código QR</h5>
- <p class="text-muted small mb-3">Selecciona el grupo y administra las credenciales. La plantilla oficial (frente y reverso) ya está integrada; solo el Encargado de Control Escolar puede cambiarla (bloque "Plantilla Oficial de Credenciales" de arriba).</p>
+ <p class="text-muted small mb-3">Elige el turno, selecciona el grupo y administra las credenciales. Cada turno usa su plantilla oficial (frente y reverso); solo el Encargado de Control Escolar puede cambiarla (bloque "Plantilla Oficial de Credenciales" de arriba).</p>
+ <div class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
+ <button onclick="setTurnoCred('Matutino')" id="btn-turno-cred-matutino" class="btn btn-vinotinto px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-sun me-1"></i> Matutino</button>
+ <button onclick="setTurnoCred('Vespertino')" id="btn-turno-cred-vespertino" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-moon me-1"></i> Vespertino</button>
+ </div>
  <div class="row g-2 mb-4 justify-content-center">
  @foreach(['Primero','Segundo','Tercero'] as $i => $gr)
  @foreach([1,2,3,4] as $n)
@@ -217,7 +228,11 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <span id="badge-plantilla" class="badge bg-secondary">Plantilla oficial</span>
  </div>
  <div class="mb-3 p-3 bg-light rounded-3 border">
- <label class="form-label small">1. Subir lista de alumnos (Excel/.csv con <b>CURP en la columna A</b> y <b>Nombre completo en la columna B</b>) — asigna el CURP y la credencial digital de cada alumno de este grupo</label>
+ <label class="form-label small">1. Subir lista de alumnos (Excel/.csv con <b>CURP en la columna A</b> y el <b>nombre completo en la columna B</b>; o bien <b>Apellido paterno, Apellido materno y Nombre(s)</b> en las columnas B, C y D) — asigna el CURP y la credencial digital de cada alumno de este grupo y turno. El nombre siempre se guarda como <b>Apellido paterno, Apellido materno y Nombre(s)</b>.</label>
+ <select id="orden-nombre-cred" class="form-select form-select-sm mb-2">
+ <option value="reordenar" selected>El nombre viene como Nombre(s) + Apellidos (reordenar)</option>
+ <option value="tal-cual">El nombre ya viene como Apellido paterno, materno y nombre (no cambiar)</option>
+ </select>
  <div class="input-group input-group-sm">
  <input type="file" class="form-control" id="input-subir-lista-credencial" accept=".xlsx,.xls,.csv">
  <button class="btn btn-dark btn-accion-restringida" type="button" onclick="subirListaCredencial()">Subir Lista</button>
@@ -242,7 +257,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="col-md-6">
  <div class="mb-3"><label class="form-label small">Matrícula (CURP)</label>
  <input type="text" id="edit-curp-alumno" class="form-control form-control-sm" oninput="actualizarVistaPreviaCredencial()"></div>
- <div class="mb-3"><label class="form-label small">Nombre Completo</label>
+ <div class="mb-3"><label class="form-label small">Nombre Completo (Apellido paterno, Apellido materno y Nombre)</label>
  <input type="text" id="edit-nombre-alumno" class="form-control form-control-sm" oninput="actualizarVistaPreviaCredencial()"></div>
  <div class="d-flex gap-2">
  <button onclick="guardarCambiosCredencial()" class="btn btn-success w-100 btn-accion-restringida"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar Cambios</button>
@@ -285,7 +300,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </div>
 <!-- ===== 3. PANEL DE ORIENTADORES ===== -->
 <div id="panel-orientador" class="panel-perfil d-none">
- <div class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
+ <div id="bloque-turno-panel" class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
  <button onclick="setTurno('Matutino')" id="btn-turno-matutino" class="btn btn-vinotinto px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-sun me-1"></i> Turno Matutino</button>
  <button onclick="setTurno('Vespertino')" id="btn-turno-vespertino" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-moon me-1"></i> Turno Vespertino</button>
  </div>
@@ -327,7 +342,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-user-plus me-2"></i> Subir Lista de Orientadores</h6>
- <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>nombre completo de cada orientador(a)</b>, uno por fila o por línea. Después, asígnalos a un grado y grupo en el bloque de horario de abajo.</p>
+ <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>nombre completo de cada orientador(a)</b>, uno por fila o por línea. Después, asígnalos a un grado, grupo y turno en el bloque de horario de abajo.</p>
  <div class="row g-3 align-items-end mb-2">
  <div class="col-md-8"><label class="form-label small">Archivo</label><input type="file" id="archivo-orientadores" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
  <div class="col-md-4"><button onclick="subirOrientadores()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-upload me-1"></i> Subir Orientadores</button></div>
@@ -338,17 +353,24 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <!-- SOLO CONTROL ESCOLAR: subir lista del grupo elegido arriba -->
  <div id="bloque-listas-orientador" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-file-arrow-up me-2"></i> Subir Lista del Grupo</h6>
- <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>Nombre completo</b>, uno por fila o por línea. Se asigna al grado y grupo elegidos arriba. El CURP y la credencial se asignan después desde el <b>Portal del Alumno</b>.</p>
+ <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>nombre completo</b>, uno por fila o por línea (o en 3 columnas: Apellido paterno, Apellido materno y Nombre(s)). Se asigna al grado, grupo y turno elegidos arriba, y el nombre se guarda como <b>Apellido paterno, Apellido materno y Nombre(s)</b>. El CURP y la credencial se asignan después desde el <b>Portal del Alumno</b>.</p>
  <div class="row g-3 align-items-end">
  <div class="col-md-4"><label class="form-label small">Grupo seleccionado</label><input type="text" id="lbl-grupo-lista" class="form-control form-control-sm" value="Selecciona grado y grupo arriba" readonly></div>
  <div class="col-md-5"><label class="form-label small">Archivo</label><input type="file" id="archivo-lista" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
  <div class="col-md-3"><button onclick="subirLista()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold btn-accion-restringida"><i class="fa-solid fa-upload me-1"></i> Subir Lista</button></div>
+ <div class="col-12">
+ <label class="form-label small">Orden de los nombres en el archivo</label>
+ <select id="orden-nombre-lista" class="form-select form-select-sm">
+ <option value="reordenar" selected>Vienen como Nombre(s) + Apellidos (reordenar a Apellido paterno, materno y nombre)</option>
+ <option value="tal-cual">Ya vienen como Apellido paterno, materno y nombre (no cambiar)</option>
+ </select>
+ </div>
  </div>
  </div>
  <!-- SOLO CONTROL ESCOLAR: horario de entrada/salida y orientador del grupo -->
  <div id="bloque-horario-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-clock me-2"></i> Horario y Orientador(a) del Grupo</h6>
- <p class="text-muted small mb-3">Define la hora límite de entrada (para marcar retardo), la hora de cierre (para marcar permanencia) y el orientador(a) del grado y grupo seleccionados arriba. Un orientador(a) ya asignado a otro grupo aparece bloqueado aquí para evitar duplicar su asignación.</p>
+ <p class="text-muted small mb-3">Define la hora límite de entrada (para marcar retardo), la hora de cierre (para marcar permanencia) y el orientador(a) del grado, grupo y turno seleccionados arriba. El horario y el orientador son independientes en cada turno. Un orientador(a) ya asignado a otro grupo aparece bloqueado aquí para evitar duplicar su asignación.</p>
  <div class="row g-3 align-items-end mb-3">
  <div class="col-md-3"><label class="form-label small">Hora límite de entrada</label><input type="time" id="horario-entrada-limite" class="form-control form-control-sm"></div>
  <div class="col-md-3"><label class="form-label small">Hora de cierre (salida)</label><input type="time" id="horario-salida-limite" class="form-control form-control-sm"></div>
@@ -360,7 +382,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="col-md-2"><button onclick="guardarHorarioGrupo()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button></div>
  </div>
  <div class="row g-3 align-items-end">
- <div class="col-md-6"><label class="form-label small">Archivo de horarios (.xlsx/.xls/.csv): columnas Grado, Grupo, HoraEntrada, HoraSalida, NombreOrientador</label><input type="file" id="archivo-horarios" class="form-control form-control-sm" accept=".xlsx,.xls,.csv"></div>
+ <div class="col-md-6"><label class="form-label small">Archivo de horarios (.xlsx/.xls/.csv): columnas Grado, Grupo, HoraEntrada, HoraSalida, NombreOrientador y Turno (opcional; si no se indica se usa el turno activo)</label><input type="file" id="archivo-horarios" class="form-control form-control-sm" accept=".xlsx,.xls,.csv"></div>
  <div class="col-md-3"><button onclick="subirHorarios()" class="btn btn-dark btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-upload me-1"></i> Subir Horarios</button></div>
  </div>
  <div id="resumen-horario-grupo" class="mt-2 small text-muted"></div>
@@ -404,7 +426,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </div>
 <!-- ===== 4. CONTROL ESCOLAR ===== -->
 <div id="panel-control" class="panel-perfil d-none">
- <div class="alert alert-warning py-2 mb-3 small fw-semibold"><i class="fa-solid fa-shield-halved me-1"></i>Control Escolar: estadísticas y asignación de permisos. Las listas, los orientadores y los horarios se suben en el <b>Panel de Orientadores</b> (elige grado y grupo).</div>
+ <div class="alert alert-warning py-2 mb-3 small fw-semibold"><i class="fa-solid fa-shield-halved me-1"></i>Control Escolar: estadísticas y asignación de permisos. Las listas, los orientadores y los horarios se suben en el <b>Panel de Orientadores</b> (elige turno, grado y grupo).</div>
  <div class="row text-center mb-4 g-3">
  <div class="col-md-4"><div class="p-3 bg-white rounded-4 border shadow-sm"><span class="text-muted d-block fw-bold small mb-1">TOTAL ALUMNOS</span><h3 class="fw-bold mb-0" id="st-total">0</h3></div></div>
  <div class="col-md-4"><div class="p-3 bg-white rounded-4 border shadow-sm"><span class="text-muted d-block fw-bold small mb-1">ASISTENCIAS DE HOY</span><h3 class="fw-bold text-success mb-0" id="st-asis">0</h3></div></div>
@@ -475,8 +497,9 @@ if (typeof pdfjsLib !== 'undefined') {
 /* ============ DATOS (localStorage del navegador) ============ */
 const LS = 'sica_epo6_v4';
 /* Limpieza única de datos guardados en el navegador.
- Para volver a borrar en el futuro, cambia '_1' por '_2'. */
-const LIMPIEZA = 'sica_epo6_limpieza_2';
+ Para volver a borrar en el futuro, cambia '_3' por '_4'.
+ (Se subió a _3 porque cambió el formato de las claves de horario y de plantillas: ahora llevan turno.) */
+const LIMPIEZA = 'sica_epo6_limpieza_3';
 if (!localStorage.getItem(LIMPIEZA)) {
  localStorage.removeItem(LS);
  localStorage.removeItem('sica_epo6_plantilla_oficial');
@@ -492,7 +515,7 @@ const ordenPaneles = ['orientador','lector','alumno'];
 let db = JSON.parse(localStorage.getItem(LS) || 'null') || {
  permisos: {orientador:'editar', director:'ver', subdirector:'ver'},
  plantillas: {}, // claveGrupo -> {frente:{img,fmt}, reverso:{img,fmt}} (override opcional por grupo)
- horarios: {}, // claveGrupo -> {entrada, salida, orientadorId}
+ horarios: {}, // claveGrupo ("Turno-grado-grupo") -> {entrada, salida, orientadorId}
  orientadores: [], // {id, nombre}
  alumnos: []
 };
@@ -570,10 +593,12 @@ function cargarDesdeServidor() {
 }
 let rolActivo = null, turnoActivo = 'Matutino', indicePanelActual = 0, modoEscaneo = 'Entrada';
 let filtro = null, credSel = null, idEditando = null, chartAsistencias = null, gradoSeleccionado = null;
+let turnoCred = 'Matutino'; // turno elegido en el Portal del Alumno (credenciales)
 let orientadorActivo = null; // {id, nombre} cuando el rol activo es 'orientador'
-let gruposDelOrientador = []; // [{grado,grupo}] calculados a partir de db.horarios
+let gruposDelOrientador = []; // [{turno,grado,grupo}] calculados a partir de db.horarios
 const scanners = {}; let ultimo = {t:'', ts:0};
-const plantillasDefault = {frente:null, reverso:null}; // dataURL cacheado de la plantilla oficial
+// dataURL cacheado de la plantilla oficial de cada turno
+const plantillasDefault = {Matutino:{frente:null, reverso:null}, Vespertino:{frente:null, reverso:null}};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm = t => (t||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const p2 = n => String(n).padStart(2,'0');
@@ -581,14 +606,22 @@ const fechaLocal = d => { d = d || new Date(); return d.getFullYear()+'-'+p2(d.g
 const hoy = () => fechaLocal();
 const horaAhora = () => { const d = new Date(); return p2(d.getHours())+':'+p2(d.getMinutes()); };
 const toMin = hm => { const [h,m] = hm.split(':').map(Number); return h*60+m; };
-const claveGrupo = (grado, grupo) => grado + '-' + grupo;
+/* Clave de grupo: "Turno-grado-grupo" (ej. "Vespertino-1-2"). Matutino y Vespertino son grupos distintos. */
+const claveGrupo = (grado, grupo, turno) => (turno || 'Matutino') + '-' + grado + '-' + grupo;
+/* Lee una clave. Acepta también el formato viejo "grado-grupo" (se toma como Matutino). */
+const parseClave = k => {
+ const p = String(k).split('-');
+ return p.length === 2
+  ? {turno:'Matutino', grado:Number(p[0]), grupo:Number(p[1])}
+  : {turno:p[0], grado:Number(p[1]), grupo:Number(p[2])};
+};
 const generarId = () => 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const LIM = {Matutino:{retardo:430,fin:840}, Vespertino:{retardo:790,fin:1200}}; // 7:10-14:00 / 13:10-20:00 (por defecto)
 const nomGrado = ['', 'Primero', 'Segundo', 'Tercero'];
 const ROMANOS = ['', 'I', 'II', 'III', 'IV']; // grupo en número romano para la credencial
 Chart.defaults.devicePixelRatio = Math.max(window.devicePixelRatio || 1, 2);
 function limiteDe(a) {
- const h = db.horarios[claveGrupo(a.grado, a.grupo)];
+ const h = db.horarios[claveGrupo(a.grado, a.grupo, a.turno)];
  if (h && h.entrada && h.salida) return {retardo: toMin(h.entrada), fin: toMin(h.salida)};
  return LIM[a.turno];
 }
@@ -623,6 +656,32 @@ function tituloPeriodo(periodo, ref) {
  if (periodo === 'mes') return 'Mes de ' + d.toLocaleDateString('es-MX', {month:'long', year:'numeric'});
  if (periodo === 'semana') { const dias = diasDePeriodo('semana', ref); return 'Semana del ' + dias[0] + ' al ' + dias[6]; }
  return 'Hoy (' + ref + ')';
+}
+/* ============ ORDEN DEL NOMBRE: APELLIDO PATERNO + APELLIDO MATERNO + NOMBRE(S) ============ */
+const PARTICULAS = ['de','del','la','las','los','y','e','san','santa','van','von','mc','mac','da','das','dos','di'];
+/* Convierte "Nombre(s) Ap. paterno Ap. materno" en "Ap. paterno Ap. materno Nombre(s)".
+ Respeta partículas de apellidos compuestos (DE LA CRUZ, DEL RIO, etc.). Es una regla: revisa los casos raros. */
+function reordenarNombrePrimero(txt) {
+ const p = String(txt).trim().replace(/\s+/g, ' ').split(' ');
+ if (p.length < 2) return p.join(' ');
+ const tomarApellido = () => {
+  const ap = [p.pop()];
+  while (p.length > 1 && PARTICULAS.includes(norm(p[p.length - 1]))) ap.unshift(p.pop());
+  return ap;
+ };
+ const ap2 = tomarApellido();
+ if (p.length <= 1) return ap2.concat(p).join(' '); // solo un apellido
+ const ap1 = tomarApellido();
+ return ap1.concat(ap2, p).join(' ');
+}
+/* fila = renglón del archivo; desde = columna donde empieza el nombre.
+ Si vienen 3 columnas (paterno, materno, nombre) las une en ese orden;
+ si viene una sola, la reordena o la deja tal cual según el selector. */
+function armarNombre(fila, desde, modo) {
+ const c = [0,1,2].map(i => String(fila[desde + i] == null ? '' : fila[desde + i]).trim());
+ if (c[1] && c[2]) return c.join(' ').replace(/\s+/g, ' ').trim();
+ const t = c[0].replace(/\s+/g, ' ');
+ return modo === 'reordenar' ? reordenarNombrePrimero(t) : t;
 }
 /* ============ LECTURA DE ARCHIVOS (Excel / CSV / PDF) ============
  Punto único para leer listas de nombres: si es .xlsx/.xls/.csv usa SheetJS (como antes);
@@ -690,7 +749,8 @@ function renderListaOrientadores() {
  if (!db.orientadores.length) { $('#lista-orientadores-actual').html('<span class="text-muted">Aún no hay orientadores dados de alta.</span>'); return; }
  $('#lista-orientadores-actual').html('<b>Orientadores dados de alta:</b> ' + db.orientadores.map(o => {
  const asignado = Object.entries(db.horarios).find(([k,v]) => v.orientadorId === o.id);
- const etiqueta = asignado ? ' (Grado ' + asignado[0].split('-')[0] + ', Grupo ' + asignado[0].split('-')[1] + ')' : ' (sin grupo)';
+ const c = asignado ? parseClave(asignado[0]) : null;
+ const etiqueta = c ? ' (Grado ' + c.grado + ', Grupo ' + c.grupo + ', ' + c.turno + ')' : ' (sin grupo)';
  return '<span class="d-inline-flex align-items-center gap-1 me-3 mb-1">' + esc(o.nombre) + etiqueta +
  ' <button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-1" title="Eliminar orientador"><i class="fa-solid fa-trash"></i></button></span>';
  }).join(''));
@@ -699,7 +759,7 @@ function renderListaOrientadores() {
 function eliminarOrientador(id) {
  if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede eliminar orientadores.'); return; }
  const o = db.orientadores.find(x => x.id === id); if (!o) return;
- const grupos = Object.entries(db.horarios).filter(([k, v]) => v.orientadorId === id).map(([k]) => 'Grado ' + k.split('-')[0] + ' Grupo ' + k.split('-')[1]);
+ const grupos = Object.entries(db.horarios).filter(([k, v]) => v.orientadorId === id).map(([k]) => { const c = parseClave(k); return 'Grado ' + c.grado + ' Grupo ' + c.grupo + ' (' + c.turno + ')'; });
  if (!confirm('¿Eliminar a ' + o.nombre + '?' + (grupos.length ? '\nSe quitará de: ' + grupos.join(', ') + ' (quedará sin orientador).' : '') + '\nEsta acción no se puede deshacer.')) return;
  fetch('/api/sica/sync', {
  method: 'POST',
@@ -717,9 +777,9 @@ function eliminarOrientador(id) {
 function calcularGruposOrientador(orientadorId) {
  return Object.entries(db.horarios)
  .filter(([k, v]) => v.orientadorId === orientadorId)
- .map(([k]) => { const [g, n] = k.split('-').map(Number); return {grado: g, grupo: n}; });
+ .map(([k]) => parseClave(k));
 }
-/* Orientadores ya asignados a OTRO grupo distinto al que se está editando (para bloquearlos) */
+/* Orientadores ya asignados a OTRO grupo/turno distinto al que se está editando (para bloquearlos) */
 function orientadoresBloqueadosParaGrupo(claveActual) {
  const ocupados = {};
  Object.entries(db.horarios).forEach(([k, v]) => { if (v.orientadorId && k !== claveActual) ocupados[v.orientadorId] = k; });
@@ -727,14 +787,15 @@ function orientadoresBloqueadosParaGrupo(claveActual) {
 }
 function poblarSelectOrientadorHorario() {
  const sel = $('#orientador-grupo-select');
- const actualId = filtro ? (db.horarios[claveGrupo(filtro.grado, filtro.grupo)] || {}).orientadorId : '';
- const ocupados = filtro ? orientadoresBloqueadosParaGrupo(claveGrupo(filtro.grado, filtro.grupo)) : {};
+ const claveAct = filtro ? claveGrupo(filtro.grado, filtro.grupo, turnoActivo) : '';
+ const actualId = filtro ? (db.horarios[claveAct] || {}).orientadorId : '';
+ const ocupados = filtro ? orientadoresBloqueadosParaGrupo(claveAct) : {};
  let html = '<option value="">Sin asignar</option>';
  db.orientadores.forEach(o => {
  const bloqueado = ocupados[o.id] && o.id !== actualId;
- const [gB, nB] = bloqueado ? ocupados[o.id].split('-') : [];
+ const c = bloqueado ? parseClave(ocupados[o.id]) : null;
  html += '<option value="' + esc(o.id) + '" ' + (bloqueado ? 'disabled' : '') + '>' + esc(o.nombre) +
- (bloqueado ? ' (ya asignado: Grado ' + gB + ' Grupo ' + nB + ')' : '') + '</option>';
+ (bloqueado ? ' (ya asignado: Grado ' + c.grado + ' Grupo ' + c.grupo + ', ' + c.turno + ')' : '') + '</option>';
  });
  sel.html(html);
  sel.val(actualId || '');
@@ -833,7 +894,7 @@ function aplicarPermisos(rol) {
  $('.btn-accion-restringida').toggleClass('bloqueado-permiso', !ok).attr('title', ok ? null : 'Requiere autorización de Control Escolar');
  $('#aviso-camara-bloqueada').toggleClass('d-none', ok);
  $('#bloque-permisos-roles').toggleClass('d-none', rol !== 'control');
- $('#bloque-plantilla-oficial').toggleClass('d-none', rol !== 'control'); // CAMBIO: solo Control Escolar ve el bloque
+ $('#bloque-plantilla-oficial').toggleClass('d-none', rol !== 'control'); // solo Control Escolar ve el bloque
  configurarPanelOrientador();
 }
 function guardarPermisoRol() {
@@ -911,11 +972,26 @@ function setModoEscaneo(m) {
 }
 function toggleCamaraFija() { scanners['cam-fija'] ? detener('cam-fija') : iniciarScanner('cam-fija', () => modoEscaneo); }
 /* ============ PANEL DE ORIENTADORES ============ */
-function setTurno(t) {
- turnoActivo = t;
+function pintarBotonesTurno() {
+ const t = turnoActivo;
  $('#btn-turno-matutino').toggleClass('btn-vinotinto', t === 'Matutino').toggleClass('btn-outline-dark bg-white', t !== 'Matutino');
  $('#btn-turno-vespertino').toggleClass('btn-vinotinto', t === 'Vespertino').toggleClass('btn-outline-dark bg-white', t !== 'Vespertino');
- $('#titulo-tabla-orientador').text('Turno ' + t); renderTabla();
+ $('#titulo-tabla-orientador').text('Turno ' + t);
+}
+/* Rellena horario, orientador y etiqueta del grupo según el grupo y el turno activos */
+function refrescarHorarioForm() {
+ if (!filtro) return;
+ $('#lbl-grupo-lista').val(filtro.grado + '° grado - Grupo ' + filtro.grupo + ' (' + turnoActivo + ')');
+ const h = db.horarios[claveGrupo(filtro.grado, filtro.grupo, turnoActivo)];
+ $('#horario-entrada-limite').val(h ? h.entrada : '');
+ $('#horario-salida-limite').val(h ? h.salida : '');
+ poblarSelectOrientadorHorario();
+}
+function setTurno(t) {
+ turnoActivo = t;
+ pintarBotonesTurno();
+ refrescarHorarioForm();
+ renderTabla();
 }
 function configurarPanelOrientador() {
  const c = rolActivo === 'control';
@@ -926,6 +1002,7 @@ function configurarPanelOrientador() {
  $('#bloque-horario-control').toggleClass('d-none', !c);
  $('#bloque-visualizar-grupo').toggleClass('d-none', o);
  $('#bloque-mi-grupo-orientador').toggleClass('d-none', !o);
+ $('#bloque-turno-panel').toggleClass('d-none', o); // el orientador ve solo el turno de su grupo
  if (c) { renderListaOrientadores(); poblarSelectOrientadorHorario(); }
  if (o) configurarMiGrupoOrientador();
 }
@@ -935,24 +1012,22 @@ function configurarMiGrupoOrientador() {
  $('#con-grupo-orientador').toggleClass('d-none', !tieneGrupos);
  if (!tieneGrupos) { filtro = null; return; }
  $('#sel-mi-grupo').html(gruposDelOrientador.map(g =>
- '<option value="' + g.grado + '-' + g.grupo + '">' + nomGrado[g.grado] + ' grado - Grupo ' + g.grupo + '</option>').join(''));
- const primero = gruposDelOrientador[0];
- $('#sel-mi-grupo').val(primero.grado + '-' + primero.grupo);
- elegirMiGrupo(primero.grado + '-' + primero.grupo);
+ '<option value="' + claveGrupo(g.grado, g.grupo, g.turno) + '">' + nomGrado[g.grado] + ' grado - Grupo ' + g.grupo + ' (' + g.turno + ')</option>').join(''));
+ const primero = claveGrupo(gruposDelOrientador[0].grado, gruposDelOrientador[0].grupo, gruposDelOrientador[0].turno);
+ $('#sel-mi-grupo').val(primero);
+ elegirMiGrupo(primero);
 }
 function elegirMiGrupo(valor) {
- const [g, n] = valor.split('-').map(Number);
- filtro = {grado:g, grupo:n};
+ const c = parseClave(valor);
+ filtro = {grado:c.grado, grupo:c.grupo};
+ turnoActivo = c.turno;
+ pintarBotonesTurno();
  renderTabla();
 }
 function elegirGrupo(grado, grupo) {
  [1,2,3].filter(g => g !== grado).forEach(g => $('#sel-grado-' + g).val(''));
  filtro = {grado:grado, grupo:Number(grupo)};
- $('#lbl-grupo-lista').val(grado + '° grado - Grupo ' + grupo + ' (' + turnoActivo + ')');
- const h = db.horarios[claveGrupo(grado, Number(grupo))];
- $('#horario-entrada-limite').val(h ? h.entrada : '');
- $('#horario-salida-limite').val(h ? h.salida : '');
- poblarSelectOrientadorHorario();
+ refrescarHorarioForm();
  renderTabla();
 }
 function filtrados() {
@@ -980,15 +1055,16 @@ function subirLista() {
  const file = $('#archivo-lista')[0].files[0];
  if (!file) { alert('Selecciona un archivo para la lista.'); return; }
  if (!/\.(xlsx|xls|csv|pdf)$/i.test(file.name)) { alert('Para cargar los alumnos automáticamente usa un archivo Excel (.xlsx/.xls), .csv o .pdf.'); return; }
+ const modo = $('#orden-nombre-lista').val();
  leerFilasDesdeArchivo(file, rows => {
  rows = rows.filter(r => r[0] && String(r[0]).trim());
- if (rows.length && /nombre/i.test(rows[0][0])) rows.shift();
+ if (rows.length && /nombre|apellido/i.test(rows[0][0])) rows.shift();
  let nuevos = 0, actualizados = 0;
  rows.forEach(r => {
- const nombre = String(r[0]).trim();
+ const nombre = armarNombre(r, 0, modo);
  if (!nombre) return;
- let a = db.alumnos.find(x => x.grado === filtro.grado && x.grupo === filtro.grupo && norm(x.nombre) === norm(nombre));
- if (a) { a.turno = turnoActivo; actualizados++; }
+ let a = db.alumnos.find(x => x.grado === filtro.grado && x.grupo === filtro.grupo && x.turno === turnoActivo && norm(x.nombre) === norm(nombre));
+ if (a) { actualizados++; }
  else { db.alumnos.push({id:generarId(), curp:'', nombre:nombre, grado:filtro.grado, grupo:filtro.grupo, turno:turnoActivo, reg:{}}); nuevos++; }
  });
  save(); renderTabla();
@@ -1002,6 +1078,7 @@ function subirListaCredencial() {
  const file = $('#input-subir-lista-credencial')[0].files[0];
  if (!file) { alert('Selecciona un archivo con CURP y nombre.'); return; }
  if (!/\.(xlsx|xls|csv)$/i.test(file.name)) { alert('Para cargar los alumnos automáticamente usa un archivo Excel (.xlsx/.xls) o .csv.'); return; }
+ const modo = $('#orden-nombre-cred').val();
  const rd = new FileReader();
  rd.onload = e => {
  const wb = XLSX.read(e.target.result, {type:'array'});
@@ -1009,15 +1086,15 @@ function subirListaCredencial() {
  if (rows.length && /curp|matr/i.test(rows[0][0])) rows.shift();
  let asignados = 0, creados = 0;
  rows.forEach(r => {
- const curp = String(r[0]).trim().toUpperCase(), nombre = String(r[1]).trim();
+ const curp = String(r[0]).trim().toUpperCase(), nombre = armarNombre(r, 1, modo);
  if (!curp || !nombre) return;
  let a = db.alumnos.find(x => x.curp === curp);
- if (!a) a = db.alumnos.find(x => x.grado === credSel.grado && x.grupo === credSel.grupo && !x.curp && norm(x.nombre) === norm(nombre));
- if (a) { a.curp = curp; a.nombre = nombre; a.grado = credSel.grado; a.grupo = credSel.grupo; asignados++; }
- else { db.alumnos.push({id:generarId(), curp:curp, nombre:nombre, grado:credSel.grado, grupo:credSel.grupo, turno:'Matutino', reg:{}}); creados++; }
+ if (!a) a = db.alumnos.find(x => x.grado === credSel.grado && x.grupo === credSel.grupo && x.turno === turnoCred && !x.curp && norm(x.nombre) === norm(nombre));
+ if (a) { a.curp = curp; a.nombre = nombre; a.grado = credSel.grado; a.grupo = credSel.grupo; a.turno = turnoCred; asignados++; }
+ else { db.alumnos.push({id:generarId(), curp:curp, nombre:nombre, grado:credSel.grado, grupo:credSel.grupo, turno:turnoCred, reg:{}}); creados++; }
  });
  save(); selCred(credSel.grado, credSel.grupo);
- alert('CURP asignado a ' + asignados + ' alumno(s) y ' + creados + ' registrado(s) nuevo(s) en ' + nomGrado[credSel.grado] + ' ' + credSel.grupo + '.');
+ alert('CURP asignado a ' + asignados + ' alumno(s) y ' + creados + ' registrado(s) nuevo(s) en ' + nomGrado[credSel.grado] + ' ' + credSel.grupo + ' (' + turnoCred + ').');
  $('#input-subir-lista-credencial').val('');
  };
  rd.readAsArrayBuffer(file);
@@ -1027,10 +1104,10 @@ function guardarHorarioGrupo() {
  if (!filtro) { alert('Primero selecciona el grado y el grupo arriba (Visualizar Grupo).'); return; }
  const e = $('#horario-entrada-limite').val(), s = $('#horario-salida-limite').val(), oid = $('#orientador-grupo-select').val();
  if (!e || !s) { alert('Indica la hora límite de entrada y la hora de cierre.'); return; }
- db.horarios[claveGrupo(filtro.grado, filtro.grupo)] = {entrada:e, salida:s, orientadorId: oid || ''};
+ db.horarios[claveGrupo(filtro.grado, filtro.grupo, turnoActivo)] = {entrada:e, salida:s, orientadorId: oid || ''};
  save(); renderTabla(); poblarSelectOrientadorHorario(); renderListaOrientadores();
  const nombreOrientador = oid ? (db.orientadores.find(o => o.id === oid) || {}).nombre : 'Sin asignar';
- $('#resumen-horario-grupo').text('Datos guardados para ' + filtro.grado + '° grado, grupo ' + filtro.grupo + ': entrada límite ' + e + ', cierre ' + s + ', orientador(a): ' + nombreOrientador + '.');
+ $('#resumen-horario-grupo').text('Datos guardados para ' + filtro.grado + '° grado, grupo ' + filtro.grupo + ' (' + turnoActivo + '): entrada límite ' + e + ', cierre ' + s + ', orientador(a): ' + nombreOrientador + '.');
 }
 function subirHorarios() {
  if (!permisoPermite()) return;
@@ -1043,6 +1120,7 @@ function subirHorarios() {
  if (rows.length && /grado/i.test(rows[0][0])) rows.shift();
  rows.forEach(r => {
  const grado = Number(r[0]), grupo = Number(r[1]), entrada = String(r[2]).trim(), salida = String(r[3]).trim(), nombreOrientador = r[4] ? String(r[4]).trim() : '';
+ const turno = r[5] ? (/vesp/i.test(String(r[5])) ? 'Vespertino' : 'Matutino') : turnoActivo; // columna 6 (opcional)
  if (!grado || !grupo) return;
  let orientadorId = '';
  if (nombreOrientador) {
@@ -1050,10 +1128,10 @@ function subirHorarios() {
  if (!o) { o = {id: generarId(), nombre: nombreOrientador}; db.orientadores.push(o); }
  orientadorId = o.id;
  }
- db.horarios[claveGrupo(grado, grupo)] = {entrada:entrada, salida:salida, orientadorId: orientadorId};
+ db.horarios[claveGrupo(grado, grupo, turno)] = {entrada:entrada, salida:salida, orientadorId: orientadorId};
  });
  save(); renderTabla(); poblarSelectOrientadorHorario(); renderListaOrientadores();
- if (filtro) { const h = db.horarios[claveGrupo(filtro.grado, filtro.grupo)]; if (h) { $('#horario-entrada-limite').val(h.entrada); $('#horario-salida-limite').val(h.salida); } }
+ refrescarHorarioForm();
  alert('Horarios cargados para ' + rows.length + ' grupo(s).');
  $('#archivo-horarios').val('');
  };
@@ -1095,17 +1173,21 @@ function statsGrados(periodo) {
  return {Grado:g + '° grado', gradoNum:g, Alumnos:l.length, Asistencias:as, '% Asistencias':p(as), Retardos:re, '% Retardos':p(re), Permanencias:pe};
  });
 }
+/* Comparativa por grupo de un grado. Incluye los grupos de ambos turnos
+ (los del vespertino solo aparecen si ya tienen alumnos). */
 function statsPorGrupo(grado, periodo) {
  periodo = periodo || 'hoy';
- const dias = diasDePeriodo(periodo);
- return [1,2,3,4].map(grupo => {
- const l = db.alumnos.filter(a => a.grado === grado && a.grupo === grupo);
+ const dias = diasDePeriodo(periodo), res = [];
+ ['Matutino','Vespertino'].forEach(turno => [1,2,3,4].forEach(grupo => {
+ const l = db.alumnos.filter(a => a.grado === grado && a.grupo === grupo && a.turno === turno);
+ if (!l.length && turno === 'Vespertino') return;
  let as = 0, re = 0, pe = 0;
  l.forEach(a => dias.forEach(f => { const e = estatusDe(a, a.reg[f], f); if (e === 'Asistencia') as++; else if (e === 'Retardo') re++; else if (e === 'Permanencia') pe++; }));
- const h = db.horarios[claveGrupo(grado, grupo)] || {};
+ const h = db.horarios[claveGrupo(grado, grupo, turno)] || {};
  const orientadorNombre = h.orientadorId ? ((db.orientadores.find(o => o.id === h.orientadorId) || {}).nombre || 'Sin asignar') : 'Sin asignar';
- return {grupo:grupo, asistencias:as, retardos:re, permanencias:pe, alumnos:l.length, orientador: orientadorNombre};
- });
+ res.push({turno:turno, grupo:grupo, asistencias:as, retardos:re, permanencias:pe, alumnos:l.length, orientador: orientadorNombre});
+ }));
+ return res;
 }
 function renderStats() {
  const periodo = $('#sel-periodo-stats').val() || 'hoy';
@@ -1130,7 +1212,7 @@ function actualizarBotonesGrado() {
  const desactivado = gradoSeleccionado !== null && !sel;
  $('#btn-grado-' + g).toggleClass('seleccionada', sel).toggleClass('grado-desactivado', desactivado);
  });
- $('#lbl-descarga-seleccion').text(gradoSeleccionado ? ('Comparativa de ' + nomGrado[gradoSeleccionado] + ' grado (por grupo, con orientador)') : 'Estadísticas generales (todos los grados)');
+ $('#lbl-descarga-seleccion').text(gradoSeleccionado ? ('Comparativa de ' + nomGrado[gradoSeleccionado] + ' grado (por grupo y turno, con orientador)') : 'Estadísticas generales (todos los grados)');
 }
 function dibujarGraficaAsistencias(s) {
  const ctx = document.getElementById('grafica-asistencias');
@@ -1183,7 +1265,7 @@ function descargarComparativaGradoPDF(grado) {
  const tempChart = new Chart(canvas.getContext('2d'), { type:'bar',
  data:{ labels:['Asistencias','Retardos','Permanencias'], datasets:[{ data:[g.asistencias,g.retardos,g.permanencias], backgroundColor:['#198754','#ffc107','#dc3545'] }] },
  options:{ responsive:false, animation:false, devicePixelRatio:2,
- plugins:{ legend:{display:false}, title:{display:true, text:nomGrado[grado]+' '+g.grupo+' — Orientador(a): '+g.orientador, font:{size:15, weight:'bold'}, color:'#800020'} },
+ plugins:{ legend:{display:false}, title:{display:true, text:nomGrado[grado]+' '+g.grupo+' ('+g.turno+') — Orientador(a): '+g.orientador, font:{size:15, weight:'bold'}, color:'#800020'} },
  scales:{ y:{beginAtZero:true, ticks:{precision:0}} } }});
  tempChart.update();
  const img = canvas.toDataURL('image/png', 1.0);
@@ -1198,63 +1280,75 @@ function descargarComparativaGradoExcel(grado) {
  const periodo = $('#sel-periodo-stats').val() || 'hoy';
  const tp = tituloPeriodo(periodo);
  const datos = statsPorGrupo(grado, periodo);
- const filas = datos.map(g => ({Grupo: nomGrado[grado] + ' ' + g.grupo, 'Orientador(a)': g.orientador, Alumnos: g.alumnos, Asistencias: g.asistencias, Retardos: g.retardos, Permanencias: g.permanencias}));
+ const filas = datos.map(g => ({Grupo: nomGrado[grado] + ' ' + g.grupo, Turno: g.turno, 'Orientador(a)': g.orientador, Alumnos: g.alumnos, Asistencias: g.asistencias, Retardos: g.retardos, Permanencias: g.permanencias}));
  descargar('comparativa_' + nomGrado[grado] + '_grado_' + hoy(), filas, 'Excel', 'Comparativa - ' + nomGrado[grado] + ' grado - ' + tp);
 }
-/* ============ PLANTILLAS OFICIALES (frente y reverso, fijas) ============ */
-/* Se cargan una sola vez desde /public/img al abrir el sistema, y se guardan en memoria como
- dataURL para poder usarse tanto en la vista previa como al generar el PDF con jsPDF.
- CAMBIO: se agrega ?v=Date.now() para que el navegador no use una imagen vieja en caché, y si
- Control Escolar subió una plantilla nueva en este navegador (plantillaOficial), esa tiene prioridad. */
+/* ============ PLANTILLAS OFICIALES POR TURNO (frente y reverso) ============
+ Cada turno tiene su propia plantilla (cambia el C.C.T.). Se cargan una sola vez desde /public/img
+ al abrir el sistema y se guardan en memoria como dataURL, para usarse en la vista previa y en el PDF.
+ El PRIMER nombre de cada lista es el que guarda el servidor al subir una plantilla nueva
+ (plantillamatutinofrente.png, plantillavespertinoreverso.png, etc.); los siguientes son los nombres
+ originales de tus archivos, que se usan mientras no se haya subido una plantilla nueva.
+ Se agrega ?v=Date.now() para que el navegador no use una imagen vieja en caché. Si Control Escolar
+ subió una plantilla nueva en este navegador (plantillaOficial[turno]), esa tiene prioridad. */
+const ARCHIVOS_PLANTILLA = {
+ Matutino: {
+  frente:  ['plantillamatutinofrente.png', 'plantillamatutinofrente.jpg'],
+  reverso: ['plantillamatutinoreverso.png', 'trantillamatutinoreverso.png']
+ },
+ Vespertino: {
+  frente:  ['plantillavespertinofrente.png', 'plantillavespertinofrente.jpg'],
+  reverso: ['plantillavespertinoreverso.png', 'trantillavespertinoreverso.png']
+ }
+};
+const BASE_IMG = "{{ asset('img') }}/";
 function cargarPlantillasDefault() {
- // Frente: public/img/plantillafrente.png | Reverso: public/img/plantillareverso.png
- // (si tu archivo se llama "trantillareverso.png", también se detecta automáticamente)
- const candidatos = {
- frente: ["{{ asset('img/plantillafrente.png') }}?v=" + Date.now()],
- reverso: ["{{ asset('img/plantillareverso.png') }}?v=" + Date.now(), "{{ asset('img/trantillareverso.png') }}?v=" + Date.now()]
- };
- Object.keys(candidatos).forEach(lado => {
- const intentar = i => {
- if (i >= candidatos[lado].length) { console.warn('No se encontró la plantilla oficial de ' + lado + ' en public/img'); return; }
- const img = new Image();
- img.onload = () => {
- const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
- c.getContext('2d').drawImage(img, 0, 0);
- plantillasDefault[lado] = (plantillaOficial[lado] && plantillaOficial[lado].img) || c.toDataURL('image/png');
- refrescarPreviewPlantillaOficial();
- if (idEditando) actualizarVistaPreviaCredencial();
- };
- img.onerror = () => intentar(i + 1);
- img.src = candidatos[lado][i];
- };
- intentar(0);
+ Object.keys(ARCHIVOS_PLANTILLA).forEach(turno => {
+  ['frente','reverso'].forEach(lado => {
+   const lista = ARCHIVOS_PLANTILLA[turno][lado];
+   const intentar = i => {
+    if (i >= lista.length) { console.warn('No se encontró la plantilla ' + turno + ' ' + lado + ' en public/img'); return; }
+    const img = new Image();
+    img.onload = () => {
+     const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+     c.getContext('2d').drawImage(img, 0, 0);
+     const propia = plantillaOficial[turno] && plantillaOficial[turno][lado];
+     plantillasDefault[turno][lado] = (propia && propia.img) || c.toDataURL('image/png');
+     refrescarPreviewPlantillaOficial();
+     if (idEditando) actualizarVistaPreviaCredencial();
+    };
+    img.onerror = () => intentar(i + 1);
+    img.src = BASE_IMG + lista[i] + '?v=' + Date.now();
+   };
+   intentar(0);
+  });
  });
 }
-/* Devuelve {img,fmt} a usar para un lado ('frente'/'reverso') de un grupo dado: primero la
- plantilla propia del grupo si fue subida, si no la oficial de la escuela. */
-function plantillaDe(grado, grupo, lado) {
- // Solo existe la plantilla oficial (la cambia únicamente Control Escolar); ya no hay plantillas por grupo.
- if (plantillasDefault[lado]) return {img: plantillasDefault[lado], fmt:'PNG'};
- return null;
+/* Devuelve {img,fmt} de la plantilla del turno y lado indicados (o null si aún no cargó). */
+function plantillaDe(turno, lado) {
+ const t = plantillasDefault[turno || 'Matutino'];
+ return (t && t[lado]) ? {img: t[lado], fmt:'PNG'} : null;
 }
-/* ============ NUEVO: PLANTILLA OFICIAL EDITABLE (solo Control Escolar) ============
- Reemplaza la plantilla oficial de frente/reverso para todos los grupos.
+/* ============ PLANTILLA OFICIAL EDITABLE (solo Control Escolar) ============
+ Reemplaza la plantilla oficial de frente/reverso del turno elegido para todos sus grupos.
  - En el navegador: se usa de inmediato (vista previa y PDF).
- - En el servidor: se envía a /api/sica/plantilla-oficial/{lado} (ControlEscolarController@plantillaOficial),
- que sobrescribe public/img/plantillafrente.png o plantillareverso.png. */
+ - En el servidor: se envía a /api/sica/plantilla-oficial/{lado} con el campo "turno"
+ (ControlEscolarController@plantillaOficial), que sobrescribe public/img/plantilla{turno}{lado}.png. */
 const LS_PL = 'sica_epo6_plantilla_oficial'; // clave aparte para no inflar el localStorage principal
-let plantillaOficial = {};
+let plantillaOficial = {}; // {Matutino:{frente:{img},reverso:{img}}, Vespertino:{...}}
 try { plantillaOficial = JSON.parse(localStorage.getItem(LS_PL) || '{}'); } catch (e) { plantillaOficial = {}; }
 const RATIO_PLANTILLA = {frente: 797/541, reverso: 930/575};
 
 function refrescarPreviewPlantillaOficial() {
+ const t = $('#sel-turno-plantilla').val() || 'Matutino';
  ['frente','reverso'].forEach(l => {
- const src = (plantillaOficial[l] && plantillaOficial[l].img) || plantillasDefault[l] || '';
- if (src) $('#prev-plantilla-oficial-' + l).attr('src', src);
+  const src = (plantillasDefault[t] && plantillasDefault[t][l]) || '';
+  if (src) $('#prev-plantilla-oficial-' + l).attr('src', src);
  });
 }
 function subirPlantillaOficial(lado) {
  if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede cambiar la plantilla oficial.'); return; }
+ const turno = $('#sel-turno-plantilla').val() || 'Matutino';
  const f = $('#input-plantilla-oficial-' + lado)[0].files[0];
  if (!f) { alert('Selecciona la imagen de la nueva plantilla.'); return; }
  if (!/^image\/(png|jpe?g)$/.test(f.type)) { alert('Solo se aceptan imágenes .png o .jpg.'); return; }
@@ -1271,26 +1365,28 @@ function subirPlantillaOficial(lado) {
  const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
  c.getContext('2d').drawImage(img, 0, 0);
  const dataURL = c.toDataURL('image/png');
- plantillaOficial[lado] = {img: dataURL, fmt: 'PNG'};
+ plantillaOficial[turno] = plantillaOficial[turno] || {};
+ plantillaOficial[turno][lado] = {img: dataURL, fmt: 'PNG'};
  let aviso = '';
  try { localStorage.setItem(LS_PL, JSON.stringify(plantillaOficial)); }
  catch (e) { aviso = ' (la imagen es muy pesada para guardarla en este navegador; solo quedará en el servidor)'; }
- plantillasDefault[lado] = dataURL; // se usa de inmediato en vista previa y PDF
+ plantillasDefault[turno][lado] = dataURL; // se usa de inmediato en vista previa y PDF
  refrescarPreviewPlantillaOficial();
  if (idEditando) actualizarVistaPreviaCredencial();
  // Reemplazo real del archivo en el servidor
  c.toBlob(blob => {
  const fd = new FormData();
- fd.append('archivo', blob, 'plantilla' + lado + '.png');
+ fd.append('archivo', blob, 'plantilla' + turno.toLowerCase() + lado + '.png');
+ fd.append('turno', turno);
  fetch('/api/sica/plantilla-oficial/' + lado, {
  method: 'POST',
  headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
  body: fd
  }).then(r => r.ok ? r.json() : Promise.reject())
  .then(() => $('#resumen-plantilla-oficial').removeClass('text-danger').addClass('text-success')
- .text('¡Plantilla de ' + lado + ' actualizada con éxito en el servidor! Las nuevas credenciales ya se generarán con este diseño.'))
+ .text('¡Plantilla ' + turno + ' (' + lado + ') actualizada con éxito en el servidor! Las nuevas credenciales de ese turno ya se generarán con este diseño.'))
  .catch(() => $('#resumen-plantilla-oficial').removeClass('text-success').addClass('text-danger')
- .text('Plantilla de ' + lado + ' actualizada solo en este navegador; el servidor no respondió.' + aviso));
+ .text('Plantilla ' + turno + ' (' + lado + ') actualizada solo en este navegador; el servidor no respondió.' + aviso));
  }, 'image/png');
  $('#input-plantilla-oficial-' + lado).val('');
  };
@@ -1299,23 +1395,30 @@ function subirPlantillaOficial(lado) {
 }
 function restaurarPlantillaOficial() {
  if (rolActivo !== 'control') return;
- if (!confirm('¿Volver a la plantilla original del sistema?')) return;
- plantillaOficial = {}; localStorage.removeItem(LS_PL);
- plantillasDefault.frente = plantillasDefault.reverso = null;
+ const t = $('#sel-turno-plantilla').val() || 'Matutino';
+ if (!confirm('¿Volver a la plantilla original del turno ' + t + '?')) return;
+ delete plantillaOficial[t];
+ try { localStorage.setItem(LS_PL, JSON.stringify(plantillaOficial)); } catch (e) {}
+ plantillasDefault[t] = {frente:null, reverso:null};
  cargarPlantillasDefault(); // vuelve a leer de /public/img
  setTimeout(refrescarPreviewPlantillaOficial, 800);
- $('#resumen-plantilla-oficial').removeClass('text-danger').addClass('text-success').text('Se restauró la plantilla original en este navegador.');
+ $('#resumen-plantilla-oficial').removeClass('text-danger').addClass('text-success').text('Se restauró la plantilla original del turno ' + t + ' en este navegador.');
 }
 /* ============ PORTAL DEL ALUMNO / CREDENCIALES ============ */
 const qrImg = curp => new QRious({value:curp, size:220}).toDataURL();
-const clave = () => claveGrupo(credSel.grado, credSel.grupo);
-const alumnosCred = () => db.alumnos.filter(a => a.grado === credSel.grado && a.grupo === credSel.grupo);
+const alumnosCred = () => db.alumnos.filter(a => a.grado === credSel.grado && a.grupo === credSel.grupo && a.turno === turnoCred);
+function setTurnoCred(t) {
+ turnoCred = t;
+ $('#btn-turno-cred-matutino').toggleClass('btn-vinotinto', t === 'Matutino').toggleClass('btn-outline-dark bg-white', t !== 'Matutino');
+ $('#btn-turno-cred-vespertino').toggleClass('btn-vinotinto', t === 'Vespertino').toggleClass('btn-outline-dark bg-white', t !== 'Vespertino');
+ if (credSel) selCred(credSel.grado, credSel.grupo);
+}
 function selCred(grado, grupo) {
  credSel = {grado:grado, grupo:grupo};
- $('#titulo-grupo-credencial').text('Credenciales Digitales - ' + nomGrado[grado] + ' ' + grupo);
- $('#badge-plantilla').text('Plantilla oficial');
+ $('#titulo-grupo-credencial').text('Credenciales Digitales - ' + nomGrado[grado] + ' ' + grupo + ' (' + turnoCred + ')');
+ $('#badge-plantilla').text('Plantilla ' + turnoCred);
  $('#vista-editar-credencial-individual').addClass('d-none'); $('#resultado-credencial-box').removeClass('d-none');
- $('#tabla-alumnos-credencial').html(alumnosCred().map(a => `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="verCredencial(this.dataset.c)" class="btn btn-vinotinto btn-sm py-1 px-3"><i class="fa-solid fa-id-card me-1"></i> Ver Credencial</button> <button data-c="${esc(a.id)}" onclick="eliminarAlumno(this.dataset.c)" class="btn btn-outline-danger btn-sm py-1 px-2" title="Eliminar alumno"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-3">Este grupo aún no tiene alumnos. Control Escolar debe subir la lista.</td></tr>');
+ $('#tabla-alumnos-credencial').html(alumnosCred().map(a => `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="verCredencial(this.dataset.c)" class="btn btn-vinotinto btn-sm py-1 px-3"><i class="fa-solid fa-id-card me-1"></i> Ver Credencial</button> <button data-c="${esc(a.id)}" onclick="eliminarAlumno(this.dataset.c)" class="btn btn-outline-danger btn-sm py-1 px-2" title="Eliminar alumno"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-3">Este grupo aún no tiene alumnos en este turno. Control Escolar debe subir la lista.</td></tr>');
 }
 function verCredencial(id) {
  const a = db.alumnos.find(x => x.id === id); idEditando = id;
@@ -1365,11 +1468,12 @@ function actualizarVistaPreviaCredencial() {
 }
 /* Dibuja una credencial (frente o reverso) en un <canvas>. Es la misma lógica que se usa para
  generar las imágenes que después se insertan en el PDF, así la vista previa es idéntica al resultado final. */
-// Coordenadas medidas sobre la plantilla oficial (plantillafrente.png, tamaño original 797x541).
+// Coordenadas medidas sobre la plantilla oficial (tamaño original 797x541). La plantilla vespertina
+// tiene la misma proporción y distribución, así que usa las mismas coordenadas.
 // Se escalan solas (factor k) sin importar si el canvas es la vista previa chica o el de alta
 // resolución para el PDF, siempre que mantengan esta misma proporción (797:541).
-// CAMBIO: letras más pequeñas; CURP, grado, grupo y turno van A LA DERECHA de su etiqueta y el
-// texto se encoge solo (maxW) para no encimarse con la siguiente etiqueta (p. ej. "GRUPO:").
+// CURP, grado, grupo y turno van A LA DERECHA de su etiqueta y el texto se encoge solo (maxW)
+// para no encimarse con la siguiente etiqueta (p. ej. "GRUPO:").
 // Si algún dato queda desalineado, ajusta solo su x (derecha +) o y (abajo +).
 const REF_FRENTE_W = 797;
 const CAMPOS_FRENTE = {
@@ -1384,7 +1488,7 @@ function pintarCredencialCanvas(canvas, a, lado, onListo) {
  if (!canvas) return;
  const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
  ctx.clearRect(0, 0, w, h);
- const pl = plantillaDe(a.grado, a.grupo, lado);
+ const pl = plantillaDe(a.turno, lado); // plantilla del turno del alumno
  const terminar = () => { if (onListo) onListo(); };
  const dibujarContenido = () => {
  if (lado !== 'frente') { terminar(); return; } // el reverso ya viene completo en tu plantilla
@@ -1459,7 +1563,7 @@ function descargarCredencialesPDF() {
  const altoPar = hFrente + entreFrenteReverso + hReverso;
  const porHoja = 4; // 2 columnas x 2 filas
  const procesarSiguiente = () => {
- if (i >= l.length) { d.save('credenciales_' + nomGrado[credSel.grado] + '_' + credSel.grupo + '.pdf'); if (sinCurp > 0) alert('Se descargaron ' + l.length + ' credenciales (frente y reverso). ' + sinCurp + ' alumno(s) no tienen CURP asignado todavía y no se incluyeron.'); return; }
+ if (i >= l.length) { d.save('credenciales_' + nomGrado[credSel.grado] + '_' + credSel.grupo + '_' + turnoCred + '.pdf'); if (sinCurp > 0) alert('Se descargaron ' + l.length + ' credenciales (frente y reverso). ' + sinCurp + ' alumno(s) no tienen CURP asignado todavía y no se incluyeron.'); return; }
  const a = l[i];
  generarImagenesCredencialPDF(a, (imgFrente, imgReverso) => {
  const posEnHoja = i % porHoja;
