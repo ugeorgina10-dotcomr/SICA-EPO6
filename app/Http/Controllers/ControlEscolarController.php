@@ -10,7 +10,6 @@ use App\Models\Permiso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class ControlEscolarController extends Controller
 {
@@ -29,6 +28,7 @@ class ControlEscolarController extends Controller
             'guardar_permisos'     => $this->guardarPermisos($validado['datos']),
             'guardar_todo'         => $this->guardarTodo($validado['datos']),
             'registrar_asistencia' => $this->registrarAsistencia($validado['datos']),
+            'eliminar_alumno'      => $this->eliminarAlumno($validado['datos']),
             default                => response()->json(['ok' => false, 'mensaje' => 'Acción no reconocida'], 400),
         };
     }
@@ -151,19 +151,20 @@ class ControlEscolarController extends Controller
         ]);
     }
 
-    /** TEMPORAL: vacía la base. Bórralo (método y ruta) después de usarlo. */
-    public function reiniciar(string $clave): JsonResponse
+    /** Elimina un alumno (por CURP) junto con todos sus registros de asistencia */
+    private function eliminarAlumno(array $d): JsonResponse
     {
-        abort_unless($clave === 'CAMBIA-ESTA-CLAVE-8431', 403);
+        $alumno = Alumno::where('matricula', $d['curp'] ?? '')->first();
 
-        Schema::disableForeignKeyConstraints();
-        Asistencia::query()->delete();
-        Alumno::query()->delete();
-        Grupo::query()->delete();
-        Orientador::query()->delete();
-        Schema::enableForeignKeyConstraints();
+        if ($alumno) {
+            DB::transaction(function () use ($alumno) {
+                Asistencia::where('alumno_id', $alumno->id)->delete();
+                $alumno->delete();
+            });
+        }
 
-        return response()->json(['ok' => true, 'mensaje' => 'Base vaciada']);
+        // Si no existía en el servidor, también es correcto: el navegador lo quita de su lista
+        return response()->json(['ok' => true]);
     }
 
     private function guardarPermisos(array $permisos): JsonResponse

@@ -476,7 +476,7 @@ if (typeof pdfjsLib !== 'undefined') {
 const LS = 'sica_epo6_v4';
 /* Limpieza única de datos guardados en el navegador.
  Para volver a borrar en el futuro, cambia '_1' por '_2'. */
-const LIMPIEZA = 'sica_epo6_limpieza_1';
+const LIMPIEZA = 'sica_epo6_limpieza_2';
 if (!localStorage.getItem(LIMPIEZA)) {
  localStorage.removeItem(LS);
  localStorage.removeItem('sica_epo6_plantilla_oficial');
@@ -533,7 +533,7 @@ function fusionarServidor(s) {
  const clv = a => a.curp ? 'c:' + a.curp : 'i:' + a.id;
  const locales = new Map(db.alumnos.map(a => [clv(a), a])), claves = new Set();
  const lista = s.alumnos.map(sa => {
-  claves.add(clv(sa)); sa.reg = sa.reg || {};
+  claves.add(clv(sa)); sa.reg = sa.reg || {}; sa.enServidor = true;
   const la = locales.get(clv(sa));
   if (la) {
    sa.id = la.id;
@@ -545,7 +545,8 @@ function fusionarServidor(s) {
   }
   return sa;
  });
- db.alumnos = lista.concat(db.alumnos.filter(a => !claves.has(clv(a))));
+ // Se conservan los locales aún no enviados; los que ya estuvieron en el servidor y ya no están (eliminados) se quitan
+ db.alumnos = lista.concat(db.alumnos.filter(a => !claves.has(clv(a)) && !a.enServidor));
  if (s.horarios) db.horarios = s.horarios;
  if (s.orientadores) db.orientadores = s.orientadores;
  if (s.permisos) db.permisos = s.permisos;
@@ -1295,7 +1296,7 @@ function selCred(grado, grupo) {
  $('#titulo-grupo-credencial').text('Credenciales Digitales - ' + nomGrado[grado] + ' ' + grupo);
  $('#badge-plantilla').text('Plantilla oficial');
  $('#vista-editar-credencial-individual').addClass('d-none'); $('#resultado-credencial-box').removeClass('d-none');
- $('#tabla-alumnos-credencial').html(alumnosCred().map(a => `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="verCredencial(this.dataset.c)" class="btn btn-vinotinto btn-sm py-1 px-3"><i class="fa-solid fa-id-card me-1"></i> Ver Credencial</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-3">Este grupo aún no tiene alumnos. Control Escolar debe subir la lista.</td></tr>');
+ $('#tabla-alumnos-credencial').html(alumnosCred().map(a => `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="verCredencial(this.dataset.c)" class="btn btn-vinotinto btn-sm py-1 px-3"><i class="fa-solid fa-id-card me-1"></i> Ver Credencial</button> <button data-c="${esc(a.id)}" onclick="eliminarAlumno(this.dataset.c)" class="btn btn-outline-danger btn-sm py-1 px-2" title="Eliminar alumno"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-3">Este grupo aún no tiene alumnos. Control Escolar debe subir la lista.</td></tr>');
 }
 function verCredencial(id) {
  const a = db.alumnos.find(x => x.id === id); idEditando = id;
@@ -1304,6 +1305,24 @@ function verCredencial(id) {
  actualizarVistaPreviaCredencial();
 }
 function regresarListaGrupo() { selCred(credSel.grado, credSel.grupo); }
+/* Elimina un alumno (y sus asistencias) del servidor y de este navegador. Solo Control Escolar. */
+function eliminarAlumno(id) {
+ if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede eliminar alumnos.'); return; }
+ const a = db.alumnos.find(x => x.id === id); if (!a) return;
+ if (!confirm('¿Eliminar a ' + a.nombre + (a.curp ? ' (' + a.curp + ')' : '') + '? Se borrarán también sus registros de asistencia. Esta acción no se puede deshacer.')) return;
+ const quitarLocal = () => {
+ db.alumnos = db.alumnos.filter(x => x.id !== id);
+ localStorage.setItem(LS, JSON.stringify(db));
+ selCred(credSel.grado, credSel.grupo); renderTabla();
+ };
+ if (!a.curp) { quitarLocal(); return; } // nunca se guardó en el servidor
+ fetch('/api/sica/sync', {
+ method: 'POST',
+ headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+ body: JSON.stringify({accion:'eliminar_alumno', datos:{curp:a.curp}})
+ }).then(r => r.ok ? quitarLocal() : Promise.reject())
+ .catch(() => alert('No se pudo eliminar en el servidor. Revisa tu conexión e inténtalo de nuevo.'));
+}
 function guardarCambiosCredencial() {
  if (!permisoPermite()) return;
  const a = db.alumnos.find(x => x.id === idEditando), curp = $('#edit-curp-alumno').val().trim().toUpperCase(), nombre = $('#edit-nombre-alumno').val().trim();

@@ -30,6 +30,3 @@ Route::get('/api/sica/estado', [ControlEscolarController::class, 'estado'])->nam
 Route::post('/api/sica/plantilla-oficial/{lado}', [ControlEscolarController::class, 'plantillaOficial'])
     ->whereIn('lado', ['frente', 'reverso'])
     ->name('sica.plantilla');
-
-// TEMPORAL: borrar esta ruta (y el método reiniciar) después de usarla
-Route::get('/api/sica/reiniciar/{clave}', [ControlEscolarController::class, 'reiniciar']);
