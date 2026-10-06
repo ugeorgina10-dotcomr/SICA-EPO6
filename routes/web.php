@@ -20,10 +20,16 @@ Route::get('/control-escolar', function () {
     return view('sica.control_escolar');
 })->name('control.escolar');
 
-// Sincronización general (localStorage -> MySQL)
+// Sincronización general (localStorage -> MySQL) y escaneos del teléfono
 Route::post('/api/sica/sync', [ControlEscolarController::class, 'sync'])->name('sica.sync');
+
+// Estado completo del servidor (lo descargan computadoras y teléfonos)
+Route::get('/api/sica/estado', [ControlEscolarController::class, 'estado'])->name('sica.estado');
 
 // Plantilla oficial de credenciales (frente / reverso)
 Route::post('/api/sica/plantilla-oficial/{lado}', [ControlEscolarController::class, 'plantillaOficial'])
     ->whereIn('lado', ['frente', 'reverso'])
     ->name('sica.plantilla');
+
+// TEMPORAL: borrar esta ruta (y el método reiniciar) después de usarla
+Route::get('/api/sica/reiniciar/{clave}', [ControlEscolarController::class, 'reiniciar']);

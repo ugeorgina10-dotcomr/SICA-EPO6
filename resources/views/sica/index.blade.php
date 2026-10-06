@@ -66,6 +66,14 @@ h2.fw-bold{font-size:1.15rem}
 canvas#grafica-asistencias{max-width:100%;height:auto !important}
 html{-webkit-text-size-adjust:100%}
 body{overflow-x:hidden}
+/* ===== MODO TELÉFONO (orientador): solo escanear ===== */
+body.modo-movil #selector-pestanas-superior,
+body.modo-movil #panel-orientador > *:not(#bloque-camara-orientador),
+body.modo-movil #btn-regresar-panel{display:none !important}
+body.modo-movil #vista-sistema{padding:.75rem !important}
+body.modo-movil .camera-box-ref{max-width:100%;min-height:260px}
+body.modo-movil #res-cam-orient{font-size:1.1rem;min-height:40px}
+body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;padding:.9rem}
 </style>
 </head>
 <body id="cuerpo-contenedor" class="bg-login">
@@ -366,7 +374,7 @@ body{overflow-x:hidden}
  </div>
  <div id="res-cam-orient" class="res-scan mb-2"></div>
  <div id="aviso-camara-bloqueada" class="small text-danger fw-semibold mb-2 d-none"><i class="fa-solid fa-lock me-1"></i> Necesitas autorización de Control Escolar para usar la cámara.</div>
- <button onclick="activarCamaraOrientador()" id="btn-activar-camara-orientador" class="btn btn-vinotinto px-4 py-2 rounded-pill shadow-sm small btn-accion-restringida"><i class="fa-solid fa-camera me-1"></i> Activar Cámara Frontal</button>
+ <button onclick="activarCamaraOrientador()" id="btn-activar-camara-orientador" class="btn btn-vinotinto px-4 py-2 rounded-pill shadow-sm small btn-accion-restringida"><i class="fa-solid fa-camera me-1"></i> Activar Cámara</button>
  <button onclick="detener('cam-orient')" class="btn btn-dark py-2 px-3 rounded-pill small">Apagar</button>
  </div>
  <div class="row g-3 mb-4 bg-light p-3 rounded-3 border">
@@ -466,6 +474,18 @@ if (typeof pdfjsLib !== 'undefined') {
 <script>
 /* ============ DATOS (localStorage del navegador) ============ */
 const LS = 'sica_epo6_v4';
+/* Limpieza única de datos guardados en el navegador.
+ Para volver a borrar en el futuro, cambia '_1' por '_2'. */
+const LIMPIEZA = 'sica_epo6_limpieza_1';
+if (!localStorage.getItem(LIMPIEZA)) {
+ localStorage.removeItem(LS);
+ localStorage.removeItem('sica_epo6_plantilla_oficial');
+ localStorage.setItem(LIMPIEZA, '1');
+}
+// Detecta si se abrió desde un teléfono (cámara trasera, modo "solo escanear" para el orientador)
+const ES_MOVIL = /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk|webOS|BlackBerry|Opera Mini/i.test(navigator.userAgent)
+ || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1) // iPad con iPadOS se identifica como Mac
+ || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches); // pantalla táctil (aunque use "sitio de escritorio")
 const correosRoles = {orientador:'orientador1@epo6.edu.mx',director:'director@epo6.edu.mx',subdirector:'subdirector@epo6.edu.mx',control:'control.escolar@epo6.edu.mx'};
 const nombresRoles = {orientador:'Orientador',director:'Director',subdirector:'Subdirector',control:'Encargado de Control Escolar'};
 const ordenPaneles = ['orientador','lector','alumno'];
@@ -489,7 +509,11 @@ Object.keys(db.horarios).forEach(k => {
  h.orientadorId = o.id;
  }
 });
-const save = () => { localStorage.setItem(LS, JSON.stringify(db)); sincronizarConServidor('guardar_todo', db); };
+// El teléfono nunca sobrescribe toda la base en el servidor: solo envía cada escaneo (registrar_asistencia).
+const save = () => {
+ localStorage.setItem(LS, JSON.stringify(db));
+ if (!ES_MOVIL) sincronizarConServidor('guardar_todo', db);
+};
 /* ============ SINCRONIZACIÓN CON EL SERVIDOR (MySQL vía Laravel) ============
  Envía {accion, datos} a /api/sica/sync (ControlEscolarController@sync).
  Si el backend no responde, falla en silencio y el sistema sigue con localStorage. */
@@ -501,6 +525,47 @@ function sincronizarConServidor(accion, datos) {
  body: JSON.stringify({ accion: accion, datos: datos })
  }).catch(() => { /* backend aún no disponible: se ignora, localStorage sigue funcionando */ });
  } catch (err) { /* entorno sin fetch o sin backend: se ignora */ }
+}
+/* Mezcla el estado del servidor con el local sin perder entradas/salidas ya registradas.
+ Los alumnos se emparejan por CURP (el id del servidor es distinto al id local). */
+function fusionarServidor(s) {
+ if (!s || !Array.isArray(s.alumnos)) return;
+ const clv = a => a.curp ? 'c:' + a.curp : 'i:' + a.id;
+ const locales = new Map(db.alumnos.map(a => [clv(a), a])), claves = new Set();
+ const lista = s.alumnos.map(sa => {
+  claves.add(clv(sa)); sa.reg = sa.reg || {};
+  const la = locales.get(clv(sa));
+  if (la) {
+   sa.id = la.id;
+   if (la.reg) Object.keys(la.reg).forEach(f => {
+    const l = la.reg[f], r = sa.reg[f] = sa.reg[f] || {};
+    if (l.entrada && !r.entrada) r.entrada = l.entrada;
+    if (l.salida && !r.salida) r.salida = l.salida;
+   });
+  }
+  return sa;
+ });
+ db.alumnos = lista.concat(db.alumnos.filter(a => !claves.has(clv(a))));
+ if (s.horarios) db.horarios = s.horarios;
+ if (s.orientadores) db.orientadores = s.orientadores;
+ if (s.permisos) db.permisos = s.permisos;
+ localStorage.setItem(LS, JSON.stringify(db));
+}
+/* Descarga el estado del servidor (listas, CURPs, horarios, asistencias de todos los dispositivos) */
+function cargarDesdeServidor() {
+ return fetch('/api/sica/estado', {headers:{'Accept':'application/json'}})
+  .then(r => r.ok ? r.json() : null)
+  .then(s => {
+   if (!s) return;
+   fusionarServidor(s);
+   if (orientadorActivo) {
+    orientadorActivo = db.orientadores.find(o => o.id === orientadorActivo.id) || orientadorActivo;
+    gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
+   }
+   if (rolActivo) renderTabla();
+   else if (!$('#vista-login').hasClass('d-none') && !$('#select-orientador-login').val()) actualizarCredenciales();
+  })
+  .catch(() => {});
 }
 let rolActivo = null, turnoActivo = 'Matutino', indicePanelActual = 0, modoEscaneo = 'Entrada';
 let filtro = null, credSel = null, idEditando = null, chartAsistencias = null, gradoSeleccionado = null;
@@ -677,7 +742,11 @@ function intentarEntrar() {
  } else {
  orientadorActivo = null;
  }
+ // Se descargan los datos más recientes del servidor antes de entrar (importante en el teléfono)
+ cargarDesdeServidor().then(() => {
+ if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  mostrarSeccion('vista-sistema');
+ });
 }
 function mostrarSeccion(id) {
  $('#vista-inicio,#vista-login,#vista-sistema').addClass('d-none');
@@ -703,10 +772,20 @@ function mostrarSeccion(id) {
  if (!esDirSub) $('#fila-pestanas .col-tab-pestana').removeClass('col-md-4').addClass('col-md-3');
  seleccionarPerfil(rol === 'control' ? 'control' : 'orientador');
  }
+ // En teléfono, el orientador solo ve la cámara de escaneo
+ document.body.classList.toggle('modo-movil', ES_MOVIL && rol === 'orientador');
  aplicarPermisos(rol);
+ // En teléfono, la cámara (trasera) se enciende sola
+ if (ES_MOVIL && rol === 'orientador') setTimeout(activarCamaraOrientador, 400);
  }
 }
-function cerrarSesion() { Object.keys(scanners).forEach(detener); orientadorActivo = null; mostrarSeccion('vista-inicio'); }
+function cerrarSesion() {
+ Object.keys(scanners).forEach(detener);
+ orientadorActivo = null;
+ rolActivo = null;
+ document.body.classList.remove('modo-movil');
+ mostrarSeccion('vista-inicio');
+}
 function seleccionarPerfil(perfil) {
  Object.keys(scanners).forEach(detener);
  gradoSeleccionado = null;
@@ -749,8 +828,25 @@ function iniciarScanner(el, modoFn) {
  if (typeof Html5Qrcode === 'undefined') { alert('No se cargó la librería del escáner. Revisa tu conexión a internet.'); return; }
  const s = new Html5Qrcode(el); scanners[el] = s;
  $('#' + el).siblings('.cam-ph').hide();
- s.start({facingMode:'user'}, {fps:10, qrbox:{width:200,height:200}}, txt => procesarQR(txt.trim().toUpperCase(), modoFn(), el))
- .catch(e => { delete scanners[el]; $('#' + el).siblings('.cam-ph').show(); alert('No se pudo abrir la cámara (requiere permiso y https o localhost): ' + e); });
+ // Teléfono: cámara trasera ('environment'). Computadora: la que haya ('user').
+ const cfg = {fps:10, qrbox: w => { const m = Math.min(w.width, w.height); return {width:Math.floor(m*0.7), height:Math.floor(m*0.7)}; }};
+ const alLeer = txt => procesarQR(txt.trim().toUpperCase(), modoFn(), el);
+ const fallo = e => {
+ delete scanners[el]; $('#' + el).siblings('.cam-ph').show();
+ alert('No se pudo abrir la cámara (requiere permiso y https o localhost): ' + e);
+ };
+ const probar = (intentos, i) => s.start(intentos[i], cfg, alLeer).catch(e => (i + 1 < intentos.length) ? probar(intentos, i + 1) : fallo(e));
+ if (!ES_MOVIL) { probar([{facingMode:'user'}], 0); return; } // Computadora: cámara frontal
+ // Teléfono/tablet: SIEMPRE trasera. Se busca en la lista real de cámaras la que se llame back/rear/trasera...
+ const reTrasera = /back|rear|trasera|posterior|traseira|environment|arri[eè]re/i, reExtra = /ultra|wide|tele|macro|depth|front|frontal|delantera/i;
+ Html5Qrcode.getCameras().then(devs => {
+ const traseras = devs.filter(d => reTrasera.test(d.label || ''));
+ const elegida = traseras.find(d => !reExtra.test(d.label)) || traseras[0] || (devs.length > 1 ? devs[devs.length - 1] : null);
+ return elegida ? [elegida.id] : [];
+ }).catch(() => []).then(ids => {
+ const intentos = ids.concat([{facingMode:{exact:'environment'}}, {facingMode:'environment'}]); // nunca se cae a la frontal
+ return probar(intentos, 0);
+ });
 }
 function activarCamaraOrientador() { if (!permisoPermite()) return; iniciarScanner('cam-orient', () => 'Entrada'); }
 function detener(el) {
@@ -762,6 +858,7 @@ function procesarQR(curp, modo, el) {
  ultimo = {t:curp, ts:Date.now()};
  const r = registrarPorCurp(curp, modo);
  $('#res-' + el).removeClass('text-success text-danger').addClass(r.ok ? 'text-success' : 'text-danger').text(r.msg);
+ if (navigator.vibrate) navigator.vibrate(r.ok ? 150 : [100,60,100]);
 }
 function aplicarRegistro(a, modo) {
  if (!a) return {ok:false, msg:'Alumno no encontrado'};
@@ -774,6 +871,8 @@ function aplicarRegistro(a, modo) {
  if (r.salida) return {ok:false, msg:a.nombre + ': la salida ya estaba registrada (' + r.salida + ')'};
  r.salida = horaAhora();
  }
+ // Cada escaneo se envía solo al servidor para que aparezca en la computadora del orientador
+ sincronizarConServidor('registrar_asistencia', {curp: a.curp, modo: modo, fecha: f, hora: horaAhora()});
  save(); renderTabla();
  return {ok:true, msg:'✔ ' + modo + ' registrada: ' + a.nombre + ' (' + horaAhora() + ')'};
 }
@@ -1231,16 +1330,16 @@ function actualizarVistaPreviaCredencial() {
 // Coordenadas medidas sobre la plantilla oficial (plantillafrente.png, tamaño original 797x541).
 // Se escalan solas (factor k) sin importar si el canvas es la vista previa chica o el de alta
 // resolución para el PDF, siempre que mantengan esta misma proporción (797:541).
-// CAMBIO: los datos de CURP, grado, grupo y turno van A LA DERECHA de su etiqueta (ya no encima),
-// y cada uno tiene un ancho máximo (maxW) para que se encoja solo si no cabe.
+// CAMBIO: letras más pequeñas; CURP, grado, grupo y turno van A LA DERECHA de su etiqueta y el
+// texto se encoge solo (maxW) para no encimarse con la siguiente etiqueta (p. ej. "GRUPO:").
 // Si algún dato queda desalineado, ajusta solo su x (derecha +) o y (abajo +).
 const REF_FRENTE_W = 797;
 const CAMPOS_FRENTE = {
- nombre: {x: 20,  y: 285, maxW: 380, fontMax: 28},
- curp:   {x: 138, y: 337, font: 22, maxW: 270},
- grado:  {x: 138, y: 384, font: 20, maxW: 92},
- grupo:  {x: 338, y: 384, font: 22, maxW: 70},
- turno:  {x: 134, y: 436, font: 22, maxW: 250},
+ nombre: {x: 38,  y: 294, maxW: 370, fontMax: 16},  // alineado con el borde izquierdo de "NOMBRE DEL ESTUDIANTE"
+ curp:   {x: 134, y: 331, font: 14, maxW: 275},   // CURP, GRADO y TURNO comparten la misma columna (x=134)
+ grado:  {x: 134, y: 382, font: 11, maxW: 52},    // termina antes de la etiqueta "GRUPO:"
+ grupo:  {x: 282, y: 382, font: 14, maxW: 40},    // justo después de la etiqueta "GRUPO:"
+ turno:  {x: 134, y: 437, font: 14, maxW: 250},
  qr:     {x: 423, y: 261, lado: 122}
 };
 function pintarCredencialCanvas(canvas, a, lado, onListo) {
@@ -1263,8 +1362,8 @@ function pintarCredencialCanvas(canvas, a, lado, onListo) {
  const c = CAMPOS_FRENTE.nombre, nombreTxt = (a.nombre || '(SIN NOMBRE)').toUpperCase();
  let tam = c.fontMax * k;
  ctx.font = 'bold ' + Math.round(tam) + 'px Segoe UI';
- while (ctx.measureText(nombreTxt).width > c.maxW * k && tam > 11 * k) {
- tam -= k; ctx.font = 'bold ' + Math.round(tam) + 'px Segoe UI';
+ while (ctx.measureText(nombreTxt).width > c.maxW * k && tam > 9 * k) {
+ tam -= k * 0.5; ctx.font = 'bold ' + Math.round(tam) + 'px Segoe UI';
  }
  ctx.fillText(nombreTxt, c.x * k, c.y * k);
  // CURP / Grado / Grupo / Turno: negritas, MAYÚSCULAS, se encogen solos si no caben
@@ -1276,7 +1375,7 @@ function pintarCredencialCanvas(canvas, a, lado, onListo) {
  : (a.turno || '')).toUpperCase();
  let t = d.font * k;
  ctx.font = 'bold ' + Math.round(t) + 'px Segoe UI';
- while (ctx.measureText(valor).width > d.maxW * k && t > 9 * k) {
+ while (ctx.measureText(valor).width > d.maxW * k && t > 7 * k) {
  t -= k * 0.5; ctx.font = 'bold ' + Math.round(t) + 'px Segoe UI';
  }
  ctx.fillText(valor, d.x * k, d.y * k);
@@ -1353,6 +1452,8 @@ $(function () {
  actualizarCredenciales();
  $('#calendario-orientador').val(hoy());
  cargarPlantillasDefault();
+ cargarDesdeServidor();                                  // trae listas, CURPs, horarios y asistencias del servidor
+ if (!ES_MOVIL) setInterval(cargarDesdeServidor, 5000);  // las computadoras ven los escaneos del teléfono en ~5 s
 });
 </script>
 </body>

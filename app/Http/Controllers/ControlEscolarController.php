@@ -10,6 +10,7 @@ use App\Models\Permiso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ControlEscolarController extends Controller
 {
@@ -25,9 +26,10 @@ class ControlEscolarController extends Controller
         ]);
 
         return match ($validado['accion']) {
-            'guardar_permisos' => $this->guardarPermisos($validado['datos']),
-            'guardar_todo'     => $this->guardarTodo($validado['datos']),
-            default            => response()->json(['ok' => false, 'mensaje' => 'Acción no reconocida'], 400),
+            'guardar_permisos'     => $this->guardarPermisos($validado['datos']),
+            'guardar_todo'         => $this->guardarTodo($validado['datos']),
+            'registrar_asistencia' => $this->registrarAsistencia($validado['datos']),
+            default                => response()->json(['ok' => false, 'mensaje' => 'Acción no reconocida'], 400),
         };
     }
 
@@ -55,6 +57,113 @@ class ControlEscolarController extends Controller
         $request->file('archivo')->move($carpeta, $nombre);
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Lo que manda el teléfono en cada escaneo */
+    private function registrarAsistencia(array $d): JsonResponse
+    {
+        $alumno = Alumno::where('matricula', $d['curp'] ?? '')->first();
+        if (!$alumno) {
+            return response()->json(['ok' => false, 'mensaje' => 'Alumno no encontrado'], 404);
+        }
+
+        $fechaHora = ($d['fecha'] ?? date('Y-m-d')) . ' ' . ($d['hora'] ?? date('H:i')) . ':00';
+
+        if (($d['modo'] ?? 'Entrada') === 'Salida') {
+            $estatus = 'Salida';
+        } else {
+            $grupo   = Grupo::find($alumno->grupo_id);
+            $estatus = ($grupo && $grupo->hora_entrada && ($d['hora'] ?? '') > substr($grupo->hora_entrada, 0, 5))
+                ? 'Retardo' : 'Asistencia';
+        }
+
+        Asistencia::updateOrCreate(
+            ['alumno_id' => $alumno->id, 'fecha_hora' => $fechaHora],
+            ['estatus' => $estatus]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Estado completo para que computadoras y teléfonos lo descarguen */
+    public function estado(): JsonResponse
+    {
+        $grupos = Grupo::all()->keyBy('id');
+        $asist  = Asistencia::all()->groupBy('alumno_id');
+
+        $horarios = [];
+        foreach ($grupos as $g) {
+            if (!$g->hora_entrada && !$g->hora_salida && !$g->orientador_id) {
+                continue;
+            }
+            $partes = explode(' ', $g->nombre);
+            $horarios[$g->grado . '-' . end($partes)] = [
+                'entrada'      => $g->hora_entrada ? substr($g->hora_entrada, 0, 5) : '',
+                'salida'       => $g->hora_salida ? substr($g->hora_salida, 0, 5) : '',
+                'orientadorId' => $g->orientador_id ? (string) $g->orientador_id : '',
+            ];
+        }
+
+        $alumnos = [];
+        foreach (Alumno::all() as $a) {
+            $g = $grupos[$a->grupo_id] ?? null;
+            if (!$g) {
+                continue;
+            }
+
+            $reg = [];
+            foreach ($asist->get($a->id, collect()) as $x) {
+                $f = substr((string) $x->fecha_hora, 0, 10);
+                $h = substr((string) $x->fecha_hora, 11, 5);
+                if ($x->estatus === 'Salida') {
+                    if (empty($reg[$f]['salida']) || $h > $reg[$f]['salida']) {
+                        $reg[$f]['salida'] = $h;
+                    }
+                } else {
+                    if (empty($reg[$f]['entrada']) || $h < $reg[$f]['entrada']) {
+                        $reg[$f]['entrada'] = $h;
+                    }
+                }
+            }
+
+            $partes = explode(' ', $g->nombre);
+            $alumnos[] = [
+                'id'     => (string) $a->id,
+                'curp'   => $a->matricula,
+                'nombre' => $a->nombre,
+                'grado'  => (int) $g->grado,
+                'grupo'  => (int) end($partes),
+                'turno'  => $g->turno ?: 'Matutino',
+                'reg'    => (object) $reg,
+            ];
+        }
+
+        $permisos = ['orientador' => 'editar', 'director' => 'ver', 'subdirector' => 'ver'];
+        foreach (Permiso::all() as $p) {
+            $permisos[$p->rol] = $p->tipo;
+        }
+
+        return response()->json([
+            'alumnos'      => $alumnos,
+            'horarios'     => (object) $horarios,
+            'orientadores' => Orientador::all()->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])->values(),
+            'permisos'     => $permisos,
+        ]);
+    }
+
+    /** TEMPORAL: vacía la base. Bórralo (método y ruta) después de usarlo. */
+    public function reiniciar(string $clave): JsonResponse
+    {
+        abort_unless($clave === 'CAMBIA-ESTA-CLAVE-8431', 403);
+
+        Schema::disableForeignKeyConstraints();
+        Asistencia::query()->delete();
+        Alumno::query()->delete();
+        Grupo::query()->delete();
+        Orientador::query()->delete();
+        Schema::enableForeignKeyConstraints();
+
+        return response()->json(['ok' => true, 'mensaje' => 'Base vaciada']);
     }
 
     private function guardarPermisos(array $permisos): JsonResponse
