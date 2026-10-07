@@ -390,7 +390,12 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <!-- Cámara (orientador / director / subdirector) -->
  <div id="bloque-camara-orientador" class="p-3 bg-light rounded-4 border mb-4 text-center">
- <h6 class="fw-bold mb-3 text-uppercase" style="color:#800020;font-size:.9rem">Cámara de Escaneo (Entradas)</h6>
+ <h6 class="fw-bold mb-3 text-uppercase" style="color:#800020;font-size:.9rem">Cámara de Escaneo (Entradas y Salidas)</h6>
+ <!-- CAMBIO: cualquier orientador puede registrar entrada o salida de cualquier alumno -->
+ <div class="d-flex justify-content-center gap-2 mb-3 flex-wrap">
+ <button onclick="setModoOrient('Entrada')" id="btn-orient-entrada" class="btn btn-success px-3 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-right-to-bracket me-1"></i> Entrada</button>
+ <button onclick="setModoOrient('Salida')" id="btn-orient-salida" class="btn btn-outline-dark bg-white px-3 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-right-from-bracket me-1"></i> Salida</button>
+ </div>
  <div class="camera-box-ref mb-2 border shadow-sm">
  <div class="cam-ph text-center text-warning"><i class="fa-solid fa-qrcode fa-2x mb-1"></i><span class="d-block small">Escáner apagado</span></div>
  <div id="cam-orient" style="width:100%"></div>
@@ -930,7 +935,15 @@ function iniciarScanner(el, modoFn) {
  return probar(intentos, 0);
  });
 }
-function activarCamaraOrientador() { if (!permisoPermite()) return; iniciarScanner('cam-orient', () => 'Entrada'); }
+/* CAMBIO: el orientador elige si la cámara registra Entrada o Salida. Funciona con cualquier alumno,
+ sin importar si es de su grupo (el registro busca por CURP en toda la base). */
+let modoOrient = 'Entrada';
+function setModoOrient(m) {
+ modoOrient = m;
+ $('#btn-orient-entrada').toggleClass('btn-success', m === 'Entrada').toggleClass('btn-outline-dark bg-white', m !== 'Entrada');
+ $('#btn-orient-salida').toggleClass('btn-vinotinto', m === 'Salida').toggleClass('btn-outline-dark bg-white', m !== 'Salida');
+}
+function activarCamaraOrientador() { if (!permisoPermite()) return; iniciarScanner('cam-orient', () => modoOrient); }
 function detener(el) {
  const s = scanners[el]; if (!s) return; delete scanners[el];
  s.stop().then(() => s.clear()).catch(() => {}); $('#' + el).siblings('.cam-ph').show();
