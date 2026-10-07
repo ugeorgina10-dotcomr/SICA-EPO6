@@ -176,7 +176,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <p class="text-muted small mb-3">Reemplaza el diseño oficial (frente y reverso) para <b>todos los grupos del turno elegido</b>. Cada turno tiene su propia plantilla (cambia el C.C.T.). La imagen debe conservar las mismas proporciones y la misma distribución que la actual (frente 797×541, reverso 930×575 px, o mayor con la misma proporción) para que nombre, CURP, grado, grupo, turno y QR caigan en su lugar.</p>
  <div class="mb-3" style="max-width:260px">
  <label class="form-label small">Turno de la plantilla</label>
- <select id="sel-turno-plantilla" class="form-select form-select-sm" onchange="refrescarPreviewPlantillaOficial()">
+ <!-- CAMBIO: al cambiar este selector también se mueven los botones Matutino/Vespertino de abajo -->
+ <select id="sel-turno-plantilla" class="form-select form-select-sm" onchange="setTurnoCred(this.value)">
  <option value="Matutino" selected>Matutino</option>
  <option value="Vespertino">Vespertino</option>
  </select>
@@ -1339,11 +1340,14 @@ let plantillaOficial = {}; // {Matutino:{frente:{img},reverso:{img}}, Vespertino
 try { plantillaOficial = JSON.parse(localStorage.getItem(LS_PL) || '{}'); } catch (e) { plantillaOficial = {}; }
 const RATIO_PLANTILLA = {frente: 797/541, reverso: 930/575};
 
+/* CAMBIO: muestra la plantilla del turno elegido. Si esa plantilla aún no está cargada,
+ oculta la imagen para que no se quede la del otro turno. */
 function refrescarPreviewPlantillaOficial() {
  const t = $('#sel-turno-plantilla').val() || 'Matutino';
  ['frente','reverso'].forEach(l => {
   const src = (plantillasDefault[t] && plantillasDefault[t][l]) || '';
-  if (src) $('#prev-plantilla-oficial-' + l).attr('src', src);
+  if (src) $('#prev-plantilla-oficial-' + l).attr('src', src).show();
+  else $('#prev-plantilla-oficial-' + l).removeAttr('src').hide();
  });
 }
 function subirPlantillaOficial(lado) {
@@ -1407,10 +1411,14 @@ function restaurarPlantillaOficial() {
 /* ============ PORTAL DEL ALUMNO / CREDENCIALES ============ */
 const qrImg = curp => new QRious({value:curp, size:220}).toDataURL();
 const alumnosCred = () => db.alumnos.filter(a => a.grado === credSel.grado && a.grupo === credSel.grupo && a.turno === turnoCred);
+/* CAMBIO: al elegir Matutino/Vespertino abajo, el selector "Turno de la plantilla" y la
+ vista previa (frente y reverso) de arriba cambian al mismo turno. */
 function setTurnoCred(t) {
  turnoCred = t;
  $('#btn-turno-cred-matutino').toggleClass('btn-vinotinto', t === 'Matutino').toggleClass('btn-outline-dark bg-white', t !== 'Matutino');
  $('#btn-turno-cred-vespertino').toggleClass('btn-vinotinto', t === 'Vespertino').toggleClass('btn-outline-dark bg-white', t !== 'Vespertino');
+ $('#sel-turno-plantilla').val(t);      // sincroniza el selector de la plantilla de arriba
+ refrescarPreviewPlantillaOficial();    // cambia la vista previa de frente y reverso
  if (credSel) selCred(credSel.grado, credSel.grupo);
 }
 function selCred(grado, grupo) {
