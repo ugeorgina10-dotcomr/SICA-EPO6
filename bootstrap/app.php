@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\VerificarPermisoSica;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,9 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Si alguien sin sesión pide una página, se le manda al inicio (ahí está el login)
         $middleware->redirectGuestsTo('/');
+
+        // Guardia de permisos por rol: sica:control  /  sica:sync
+        $middleware->alias([
+            'sica' => VerificarPermisoSica::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // /api/* y /auth/* siempre responden JSON (401, 422, 429...) y nunca redirigen
+        // /api/* y /auth/* siempre responden JSON (401, 403, 422, 429...) y nunca redirigen
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request, Throwable $e) => $request->is('api/*', 'auth/*') || $request->expectsJson()
         );

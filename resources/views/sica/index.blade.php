@@ -131,7 +131,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="mb-4">
  <label class="form-label">Contraseña</label>
- <input type="password" class="form-control shadow-sm" value="prepa06" readonly>
+ <input type="password" id="input-clave" class="form-control shadow-sm" placeholder="Escribe tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') intentarEntrar()">
  </div>
  <button type="button" onclick="intentarEntrar()" class="btn btn-vinotinto w-100 py-3 rounded-3 shadow fs-5">Ingresar al Sistema</button>
 </form>
@@ -581,21 +581,34 @@ function fusionarServidor(s) {
  if (s.permisos) db.permisos = s.permisos;
  localStorage.setItem(LS, JSON.stringify(db));
 }
-/* Descarga el estado del servidor (listas, CURPs, horarios, asistencias de todos los dispositivos) */
-function cargarDesdeServidor() {
- return fetch('/api/sica/estado', {headers:{'Accept':'application/json'}})
-  .then(r => r.ok ? r.json() : null)
-  .then(s => {
-   if (!s) return;
-   fusionarServidor(s);
-   if (orientadorActivo) {
-    orientadorActivo = db.orientadores.find(o => o.id === orientadorActivo.id) || orientadorActivo;
-    gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
-   }
-   if (rolActivo) renderTabla();
-   else if (!$('#vista-login').hasClass('d-none') && !$('#select-orientador-login').val()) actualizarCredenciales();
-  })
-  .catch(() => {});
+/* Pide un token CSRF nuevo (cuando la sesión venció, el anterior ya no sirve) */
+function refrescarCsrf() {
+ return fetch('/auth/me', {headers:{'Accept':'application/json'}})
+ .then(r => r.json())
+ .then(d => { if (d && d.csrf) $('meta[name="csrf-token"]').attr('content', d.csrf); })
+ .catch(() => {});
+}
+/* Lista de nombres de orientadores para la pantalla de login (no incluye alumnos ni CURP) */
+function cargarOrientadoresLogin() {
+ return fetch('/api/sica/orientadores', {headers:{'Accept':'application/json'}})
+ .then(r => r.ok ? r.json() : null)
+ .then(lista => {
+ if (!Array.isArray(lista)) return;
+ db.orientadores = lista;
+ localStorage.setItem(LS, JSON.stringify(db));
+ if (!rolActivo && !$('#select-orientador-login').val()) actualizarCredenciales();
+ })
+ .catch(() => {});
+}
+/* El servidor respondió 401: no hay sesión (nunca se inició o ya venció) */
+function sesionExpirada() {
+ if (rolActivo) {
+ alert('Tu sesión expiró. Vuelve a iniciar sesión.');
+ cerrarSesion();
+ } else {
+ refrescarCsrf();
+ cargarOrientadoresLogin();
+ }
 }
 let rolActivo = null, turnoActivo = 'Matutino', indicePanelActual = 0, modoEscaneo = 'Entrada';
 let filtro = null, credSel = null, idEditando = null, chartAsistencias = null, gradoSeleccionado = null;
@@ -821,6 +834,8 @@ function actualizarCredenciales() {
 }
 function intentarEntrar() {
  const rol = $('#rol-select').val();
+ const clave = $('#input-clave').val();
+ if (!clave) { alert('Escribe tu contraseña.'); return; }
  if (rol === 'orientador') {
  const id = $('#select-orientador-login').val();
  if (!id) { alert('Selecciona tu nombre de la lista para continuar.'); return; }
@@ -829,10 +844,29 @@ function intentarEntrar() {
  } else {
  orientadorActivo = null;
  }
+ fetch('/auth/login', {
+ method: 'POST',
+ headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+ body: JSON.stringify({email: $('#input-correo').val(), password: clave})
+ })
+ .then(r => r.json().then(d => ({status: r.status, ...d})))
+ .then(d => {
+ if (!d.ok) {
+ orientadorActivo = null;
+ alert(d.mensaje || 'No se pudo iniciar sesión.');
+ return;
+ }
+ if (d.csrf) $('meta[name="csrf-token"]').attr('content', d.csrf);
+ $('#input-clave').val('');
  // Se descargan los datos más recientes del servidor antes de entrar (importante en el teléfono)
- cargarDesdeServidor().then(() => {
+ cargarDesdeServidor()  .then(r => { if (r.status === 401) { sesionExpirada(); return null; } return r.ok ? r.json() : null; }) {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  mostrarSeccion('vista-sistema');
+ });
+ })
+ .catch(() => {
+ orientadorActivo = null;
+ alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
  });
 }
 function mostrarSeccion(id) {
@@ -871,6 +905,13 @@ function cerrarSesion() {
  orientadorActivo = null;
  rolActivo = null;
  document.body.classList.remove('modo-movil');
+ fetch('/auth/logout', {
+ method: 'POST',
+ headers: {'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''}
+ }).then(r => r.json())
+ .then(d => { if (d && d.csrf) $('meta[name="csrf-token"]').attr('content', d.csrf); })
+ .catch(() => {})
+ .then(() => cargarOrientadoresLogin());
  mostrarSeccion('vista-inicio');
 }
 function seleccionarPerfil(perfil) {
@@ -1616,7 +1657,7 @@ $(function () {
  $('#calendario-orientador').val(hoy());
  cargarPlantillasDefault();
  cargarDesdeServidor();                                  // trae listas, CURPs, horarios y asistencias del servidor
- if (!ES_MOVIL) setInterval(cargarDesdeServidor, 5000);  // las computadoras ven los escaneos del teléfono en ~5 s
+ if (!ES_MOVIL) setInterval(() => { if (rolActivo) cargarDesdeServidor(); }, 5000);  // las computadoras ven los escaneos del teléfono en ~5 s
 });
 </script>
 </body>

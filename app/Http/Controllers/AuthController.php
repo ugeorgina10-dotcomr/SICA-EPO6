@@ -54,11 +54,11 @@ class AuthController extends Controller
         return response()->json(['ok' => true, 'csrf' => csrf_token()]);
     }
 
-    /** Devuelve quién tiene la sesión activa (sirve para conservar el login al recargar la página). */
+    /** Devuelve quién tiene la sesión activa. Sin sesión responde 401 pero entrega un token CSRF nuevo. */
     public function me(Request $request): JsonResponse
     {
         if (!$request->user()) {
-            return response()->json(['ok' => false, 'mensaje' => 'Sin sesión.'], 401);
+            return response()->json(['ok' => false, 'mensaje' => 'Sin sesión.', 'csrf' => csrf_token()], 401);
         }
 
         return response()->json($this->datosUsuario($request));
