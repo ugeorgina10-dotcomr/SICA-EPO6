@@ -610,6 +610,22 @@ function sesionExpirada() {
  cargarOrientadoresLogin();
  }
 }
+/* Descarga el estado del servidor (listas, CURPs, horarios, asistencias de todos los dispositivos) */
+function cargarDesdeServidor() {
+ return fetch('/api/sica/estado', {headers:{'Accept':'application/json'}})
+  .then(r => { if (r.status === 401) { sesionExpirada(); return null; } return r.ok ? r.json() : null; })
+  .then(s => {
+   if (!s) return;
+   fusionarServidor(s);
+   if (orientadorActivo) {
+    orientadorActivo = db.orientadores.find(o => o.id === orientadorActivo.id) || orientadorActivo;
+    gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
+   }
+   if (rolActivo) renderTabla();
+   else if (!$('#vista-login').hasClass('d-none') && !$('#select-orientador-login').val()) actualizarCredenciales();
+  })
+  .catch(() => {});
+}
 let rolActivo = null, turnoActivo = 'Matutino', indicePanelActual = 0, modoEscaneo = 'Entrada';
 let filtro = null, credSel = null, idEditando = null, chartAsistencias = null, gradoSeleccionado = null;
 let turnoCred = 'Matutino'; // turno elegido en el Portal del Alumno (credenciales)
@@ -858,8 +874,7 @@ function intentarEntrar() {
  }
  if (d.csrf) $('meta[name="csrf-token"]').attr('content', d.csrf);
  $('#input-clave').val('');
- // Se descargan los datos más recientes del servidor antes de entrar (importante en el teléfono)
- cargarDesdeServidor()  .then(r => { if (r.status === 401) { sesionExpirada(); return null; } return r.ok ? r.json() : null; }) {
+ cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  mostrarSeccion('vista-sistema');
  });
