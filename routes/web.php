@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ControlEscolarController;
 
 // Ruta Principal (Pantalla de inicio del sistema SICA)
@@ -19,6 +20,11 @@ Route::get('/lector-fijo', function () {
 Route::get('/control-escolar', function () {
     return view('sica.control_escolar');
 })->name('control.escolar');
+
+// Autenticación
+Route::post('/auth/login', [AuthController::class, 'login'])->name('auth.login');
+Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
 
 // Sincronización general (localStorage -> MySQL) y escaneos del teléfono
 Route::post('/api/sica/sync', [ControlEscolarController::class, 'sync'])->name('sica.sync');
