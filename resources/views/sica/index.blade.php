@@ -12,6 +12,7 @@
 body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;margin:0}
 /* Fondo epo6.png: public/img/epo6.png. Se ve a partir del login, con brillo y color originales. */
 .bg-escuela{background:linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)),url("{{ asset('img/epo6.png') }}") center/cover no-repeat fixed !important;min-height:100vh}
+#input-clave::-ms-reveal,#input-clave::-ms-clear{display:none}
 .bg-login{background:#fff !important;min-height:100vh}
 .main-card{background:rgba(255,255,255,.95);border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,.3);border:1px solid rgba(128,0,32,.25)}
 .login-card{background:rgba(255,255,255,.96);border-radius:20px;box-shadow:0 15px 40px rgba(0,0,0,.35);border:1px solid #e2e8f0}
@@ -133,10 +134,12 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="mb-4">
  <label class="form-label">Contraseña</label>
- <div class="input-group shadow-sm">
- <input type="password" id="input-clave" class="form-control" placeholder="Escribe tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') intentarEntrar()">
- <button type="button" id="btn-ver-clave" class="btn btn-outline-secondary" onclick="verOcultarClave()" aria-label="Mostrar contraseña" aria-pressed="false" style="min-width:104px">
- <span id="txt-ver-clave">👁 Mostrar</span>
+ <div class="position-relative shadow-sm rounded">
+ <input type="password" id="input-clave" class="form-control pe-5" placeholder="Escribe tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') intentarEntrar()">
+ <button type="button" id="btn-ver-clave" onclick="verOcultarClave()" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"
+ style="position:absolute;top:0;bottom:0;right:0;width:46px;border:0;background:transparent;color:#6c757d;display:flex;align-items:center;justify-content:center;cursor:pointer">
+ <svg id="ojo-abierto" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+ <svg id="ojo-cerrado" class="d-none" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
  </button>
  </div>
  </div>
@@ -878,8 +881,11 @@ function verOcultarClave() {
  const boton = document.getElementById('btn-ver-clave');
  const mostrar = campo.type === 'password';
  campo.type = mostrar ? 'text' : 'password';
- document.getElementById('txt-ver-clave').textContent = mostrar ? '🙈 Ocultar' : '👁 Mostrar';
- boton.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+ document.getElementById('ojo-abierto').classList.toggle('d-none', mostrar);
+ document.getElementById('ojo-cerrado').classList.toggle('d-none', !mostrar);
+ const txt = mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña';
+ boton.setAttribute('aria-label', txt);
+ boton.setAttribute('title', txt);
  boton.setAttribute('aria-pressed', mostrar ? 'true' : 'false');
  campo.focus();
 }
@@ -918,7 +924,7 @@ function intentarEntrar() {
  }
  if (orientadorActivo) sessionStorage.setItem('sica_orientador', orientadorActivo.id);   // para recordar quién eres si recargas la página
  $('#input-clave').val('').attr('type','password');
- $('#txt-ver-clave').text('👁 Mostrar');
+ $('#ojo-abierto').removeClass('d-none'); $('#ojo-cerrado').addClass('d-none');
  cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  mostrarSeccion('vista-sistema');
