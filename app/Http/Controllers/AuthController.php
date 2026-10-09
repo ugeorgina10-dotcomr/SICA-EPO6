@@ -14,11 +14,12 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $credenciales = $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
+            'email'    => 'required|email|max:150',
+            'password' => 'required|string|max:200',
         ]);
 
-        $clave = Str::lower($credenciales['email']) . '|' . $request->ip();
+        $credenciales['email'] = Str::lower(trim($credenciales['email']));
+        $clave = $credenciales['email'] . '|' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($clave, 5)) {
             $segundos = RateLimiter::availableIn($clave);
@@ -29,7 +30,7 @@ class AuthController extends Controller
             ], 429);
         }
 
-        if (!Auth::attempt($credenciales)) {
+        if (!Auth::attempt($credenciales, false)) {   // false = sin "recordarme": la sesión no queda abierta para siempre
             RateLimiter::hit($clave, 60);
 
             return response()->json([

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="theme-color" content="#800020">
 <title>SICA-EPO6 | Sistema de Identificación y Control de Acceso</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fontawesome/6.4.0/css/all.min.css">
@@ -35,6 +36,8 @@ body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
 .badge-asignado{font-size:.7rem}
 /* ===== Responsivo ===== */
 @media (max-width:767.98px){
+.form-control,.form-select{font-size:16px;min-height:46px} /* 16px evita el zoom automático de iPhone */
+.btn{min-height:44px}
 .main-card,.login-card{padding:1.5rem !important;border-radius:16px}
 .institution-logo{width:90px;height:90px}
 .small-logo{width:55px;height:55px}
@@ -65,6 +68,7 @@ h2.fw-bold{font-size:1.15rem}
 }
 canvas#grafica-asistencias{max-width:100%;height:auto !important}
 html{-webkit-text-size-adjust:100%}
+body{padding-bottom:env(safe-area-inset-bottom)}
 body{overflow-x:hidden}
 /* ===== MODO TELÉFONO (orientador): solo escanear ===== */
 body.modo-movil #selector-pestanas-superior,
@@ -79,10 +83,9 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 <body id="cuerpo-contenedor" class="bg-login">
 <div class="container d-flex flex-column justify-content-center align-items-center min-vh-100 py-4">
 <!-- ============ INICIO ============ -->
-<div id="vista-inicio" class="card main-card p-5 text-center col-lg-6 col-md-8">
+<div id="vista-inicio" class="card main-card p-4 p-md-5 text-center col-12 col-md-8 col-lg-6">
  <div class="d-flex justify-content-center mb-3">
- <img src="{{ asset('img/logo6_2.png') }}" alt="Logo EPO6" class="institution-logo"
- onerror="this.onerror=null;this.src='{{ asset('img/logo6.png') }}';">
+ <img src="{{ asset('img/logo6.png') }}" alt="Logo EPO6" class="institution-logo">
  </div>
 <h2 class="fw-bold mb-1">SICA - EPO6</h2>
 <p class="text-muted fw-semibold mb-3">Sistema de Identificación y Control de Acceso</p>
@@ -95,10 +98,9 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </button>
 </div>
 <!-- ============ LOGIN ============ -->
-<div id="vista-login" class="card login-card p-5 col-lg-5 col-md-7 d-none">
+<div id="vista-login" class="card login-card p-4 p-md-5 col-12 col-sm-10 col-md-7 col-lg-5 d-none">
 <div class="text-center mb-2">
- <img src="{{ asset('img/logo6_2.png') }}" alt="Logo EPO6" class="small-logo mb-2"
- onerror="this.onerror=null;this.src='{{ asset('img/logo6.png') }}';">
+ <img src="{{ asset('img/logo6.png') }}" alt="Logo EPO6" class="small-logo mb-2">
  <h4 class="fw-bold mb-1">SICA - EPO6</h4>
  <p class="text-muted small mb-2">Sistema de Identificación y Control de Acceso</p>
  <hr class="w-25 mx-auto my-2" style="border-top:2px solid #800020">
@@ -127,7 +129,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="mb-3">
  <label class="form-label">Correo Institucional</label>
- <input type="email" id="input-correo" class="form-control shadow-sm" readonly>
+ <input type="email" id="input-correo" class="form-control shadow-sm" autocomplete="username" readonly>
  </div>
  <div class="mb-4">
  <label class="form-label">Contraseña</label>
@@ -137,11 +139,10 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </form>
 </div>
 <!-- ============ SISTEMA ============ -->
-<div id="vista-sistema" class="card main-card p-4 col-lg-11 d-none text-start">
+<div id="vista-sistema" class="card main-card p-3 p-md-4 col-12 col-lg-11 d-none text-start">
 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
  <div class="d-flex align-items-center gap-3">
- <img src="{{ asset('img/logo6_2.png') }}" alt="Logo EPO6" class="small-logo"
- onerror="this.onerror=null;this.src='{{ asset('img/logo6.png') }}';">
+ <img src="{{ asset('img/logo6.png') }}" alt="Logo EPO6" class="small-logo">
  <div>
  <h5 class="fw-bold text-uppercase m-0" style="color:#800020">Escuela Preparatoria Oficial Núm. 6</h5>
  <p class="cct-text m-0 small">C.C.T. 15EBH0008G (Matutino) - C.C.T. 15EBH0199N (Vespertino)</p>
@@ -500,6 +501,13 @@ if (typeof pdfjsLib !== 'undefined') {
 }
 </script>
 <script>
+/* Lo incrusta el servidor al abrir la página: quién tiene sesión y la lista de nombres de orientadores.
+   Así al abrir NO hace falta pedir /auth/me ni /api/sica/orientadores (arranque más rápido).
+   OJO: esto solo sirve para mostrar la pantalla; los permisos reales los decide siempre el servidor. */
+window.SICA_SESION = @json($sesion ?? null);
+window.SICA_ORIENTADORES = @json($orientadoresLogin ?? []);
+</script>
+<script>
 /* ============ DATOS (localStorage del navegador) ============ */
 const LS = 'sica_epo6_v4';
 /* Limpieza única de datos guardados en el navegador.
@@ -546,14 +554,25 @@ const save = () => {
 /* ============ SINCRONIZACIÓN CON EL SERVIDOR (MySQL vía Laravel) ============
  Envía {accion, datos} a /api/sica/sync (ControlEscolarController@sync).
  Si el backend no responde, falla en silencio y el sistema sigue con localStorage. */
-function sincronizarConServidor(accion, datos) {
+let _ultimoAvisoPermiso = 0;
+function avisoPermiso(mensaje) {
+ if (Date.now() - _ultimoAvisoPermiso < 5000) return;   // un solo aviso cada 5 s
+ _ultimoAvisoPermiso = Date.now();
+ alert(mensaje || 'No tienes permiso para realizar esta acción.');
+}
+function sincronizarConServidor(accion, datos, reintento) {
  try {
- fetch('/api/sica/sync', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
- body: JSON.stringify({ accion: accion, datos: datos })
- }).catch(() => { /* backend aún no disponible: se ignora, localStorage sigue funcionando */ });
- } catch (err) { /* entorno sin fetch o sin backend: se ignora */ }
+  fetch('/api/sica/sync', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
+   body: JSON.stringify({ accion: accion, datos: datos })
+  }).then(r => {
+   // 419: el token CSRF venció -> se pide uno nuevo y se reintenta UNA vez
+   if (r.status === 419 && !reintento) return refrescarCsrf().then(() => sincronizarConServidor(accion, datos, true));
+   if (r.status === 401) { sesionExpirada(); return; }
+   if (r.status === 403) return r.json().then(d => avisoPermiso(d && d.mensaje)).catch(() => avisoPermiso());
+  }).catch(() => { /* sin conexión: se ignora, localStorage sigue funcionando */ });
+ } catch (err) { /* entorno sin fetch: se ignora */ }
 }
 /* Mezcla el estado del servidor con el local sin perder entradas/salidas ya registradas.
  Los alumnos se emparejan por CURP (el id del servidor es distinto al id local). */
@@ -873,6 +892,15 @@ function intentarEntrar() {
  return;
  }
  if (d.csrf) $('meta[name="csrf-token"]').attr('content', d.csrf);
+ // El rol real lo dice el SERVIDOR. Si no coincide con el elegido (alguien tocó la página con F12), se cierra la sesión.
+ if (d.rol !== rol) {
+ orientadorActivo = null;
+ fetch('/auth/logout', {method:'POST', headers:{'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''}})
+ .then(r => r.json()).then(x => { if (x && x.csrf) $('meta[name="csrf-token"]').attr('content', x.csrf); }).catch(() => {});
+ alert('Esa cuenta no corresponde al rol seleccionado.');
+ return;
+ }
+ if (orientadorActivo) sessionStorage.setItem('sica_orientador', orientadorActivo.id);   // para recordar quién eres si recargas la página
  $('#input-clave').val('');
  cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
@@ -891,6 +919,7 @@ function mostrarSeccion(id) {
  if (id === 'vista-login') actualizarCredenciales();
  if (id === 'vista-sistema') {
  const rol = rolActivo = $('#rol-select').val();
+ if (!plantillasPedidas && !(ES_MOVIL && rol === 'orientador')) { plantillasPedidas = true; cargarPlantillasDefault(); }   // las 4 imágenes pesadas solo se bajan al entrar
  $('#badge-rol-activo').text('Rol: ' + nombresRoles[rol] + (orientadorActivo ? ' — ' + orientadorActivo.nombre : ''));
  indicePanelActual = 0;
  if (rol === 'orientador') {
@@ -917,6 +946,7 @@ function mostrarSeccion(id) {
 }
 function cerrarSesion() {
  Object.keys(scanners).forEach(detener);
+ sessionStorage.removeItem('sica_orientador');
  orientadorActivo = null;
  rolActivo = null;
  document.body.classList.remove('modo-movil');
@@ -1372,6 +1402,7 @@ const ARCHIVOS_PLANTILLA = {
  }
 };
 const BASE_IMG = "{{ asset('img') }}/";
+let plantillasPedidas = false;
 function cargarPlantillasDefault() {
  Object.keys(ARCHIVOS_PLANTILLA).forEach(turno => {
   ['frente','reverso'].forEach(lado => {
@@ -1667,12 +1698,27 @@ function descargarCredencialIndividual() {
  d.save('credencial_' + a.curp + '.pdf');
  });
 }
+/* Si al abrir la página ya hay sesión en el servidor, entra directo al sistema (sin volver a pedir contraseña al recargar) */
+function restaurarSesion(S) {
+ $('#rol-select').val(S.rol);
+ if (S.rol === 'orientador') {
+ const id = sessionStorage.getItem('sica_orientador');
+ orientadorActivo = db.orientadores.find(o => o.id === id) || null;
+ if (!orientadorActivo) { mostrarSeccion('vista-login'); return; }   // sesión abierta pero sin nombre elegido: que lo elija
+ }
+ cargarDesdeServidor().then(() => {
+ if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
+ if (!rolActivo) mostrarSeccion('vista-sistema');
+ });
+}
 $(function () {
+ if (Array.isArray(window.SICA_ORIENTADORES)) db.orientadores = window.SICA_ORIENTADORES;   // ya vienen en la página
  actualizarCredenciales();
  $('#calendario-orientador').val(hoy());
- cargarPlantillasDefault();
- cargarDesdeServidor();                                  // trae listas, CURPs, horarios y asistencias del servidor
- if (!ES_MOVIL) setInterval(() => { if (rolActivo) cargarDesdeServidor(); }, 5000);  // las computadoras ven los escaneos del teléfono en ~5 s
+ if (window.SICA_SESION) restaurarSesion(window.SICA_SESION);   // solo pide datos al servidor si hay sesión (cero errores 401 al abrir)
+ // Las computadoras ven los escaneos del teléfono en ~5 s; se pausa si la pestaña está oculta para no gastar datos ni servidor
+ if (!ES_MOVIL) setInterval(() => { if (rolActivo && !document.hidden) cargarDesdeServidor(); }, 5000);
+ document.addEventListener('visibilitychange', () => { if (!document.hidden && rolActivo) cargarDesdeServidor(); });
 });
 </script>
 </body>

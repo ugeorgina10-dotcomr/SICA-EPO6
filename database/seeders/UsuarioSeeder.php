@@ -4,10 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class UsuarioSeeder extends Seeder
 {
+    /** Contraseña inicial de todas las cuentas. Se guarda SIEMPRE con hash (bcrypt), nunca en texto plano. */
+    public const CLAVE_INICIAL = 'prepa06';
+
     public function run(): void
     {
         $usuarios = [
@@ -18,12 +20,12 @@ class UsuarioSeeder extends Seeder
         ];
 
         foreach ($usuarios as $u) {
-            // Contraseña aleatoria: no queda escrita en el código ni en git
-            $clave = Str::password(12, symbols: false);
+            // El cast 'hashed' del modelo User convierte la contraseña en hash al guardar
+            User::updateOrCreate(['email' => $u['email']], $u + ['password' => self::CLAVE_INICIAL]);
 
-            User::updateOrCreate(['email' => $u['email']], $u + ['password' => $clave]);
-
-            $this->command->info("{$u['rol']}  |  {$u['email']}  |  {$clave}");
+            $this->command->info("{$u['rol']}  |  {$u['email']}  |  contraseña guardada con hash");
         }
+
+        $this->command->warn('Comprueba que quedaron bien con:  php artisan sica:verificar-claves');
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CabecerasSeguridad;
 use App\Http\Middleware\VerificarPermisoSica;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,6 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Detrás de un proxy (Render, Railway, Nginx...) Laravel debe confiar en él para saber que es HTTPS
+        // y para ver la IP real de cada persona (límite de intentos de login).
+        $middleware->trustProxies(at: '*');
+
+        // Cabeceras de seguridad en todas las respuestas
+        $middleware->append(CabecerasSeguridad::class);
+
         // Si alguien sin sesión pide una página, se le manda al inicio (ahí está el login)
         $middleware->redirectGuestsTo('/');
 
@@ -22,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // /api/* y /auth/* siempre responden JSON (401, 403, 422, 429...) y nunca redirigen
+        // /api/* y /auth/* siempre responden JSON (401, 403, 419, 422, 429...) y nunca redirigen
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request, Throwable $e) => $request->is('api/*', 'auth/*') || $request->expectsJson()
         );

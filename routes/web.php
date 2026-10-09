@@ -9,7 +9,15 @@ use Illuminate\Support\Facades\Route;
 
 // Pantalla de inicio / login del sistema SICA
 Route::get('/', function () {
-    return view('sica.index');
+    $u = auth()->user();
+
+    return view('sica.index', [
+        // Se incrusta en la página: así al abrir no hace falta pedir /auth/me ni /api/sica/orientadores
+        'sesion' => $u ? ['rol' => $u->rol, 'nombre' => $u->name, 'email' => $u->email] : null,
+        'orientadoresLogin' => Orientador::orderBy('nombre')->get()
+            ->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])
+            ->values(),
+    ]);
 });
 
 Route::get('/login', function () {
@@ -17,7 +25,7 @@ Route::get('/login', function () {
 })->name('login');
 
 // Autenticación
-Route::post('/auth/login', [AuthController::class, 'login'])->name('auth.login');
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:20,1')->name('auth.login');
 Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
 

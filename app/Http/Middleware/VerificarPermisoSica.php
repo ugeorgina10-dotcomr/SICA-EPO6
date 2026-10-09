@@ -9,8 +9,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class VerificarPermisoSica
 {
-    /** Acciones de /api/sica/sync que solo puede hacer Control Escolar. */
-    private const SOLO_CONTROL = ['guardar_permisos', 'eliminar_orientador'];
+    /** Acciones de /api/sica/sync que SOLO puede hacer Control Escolar (el servidor manda, no el navegador). */
+    private const SOLO_CONTROL = ['guardar_permisos', 'eliminar_orientador', 'eliminar_alumno'];
+
+    /** Acciones que cualquier rol con permiso "editar" puede hacer. */
+    private const ACCIONES_EDITAR = ['guardar_todo', 'registrar_asistencia'];
 
     /** Permiso por defecto de cada rol si Control Escolar aún no lo cambió. */
     private const PERMISO_DEFAULT = [
@@ -41,8 +44,15 @@ class VerificarPermisoSica
             return $this->denegar('Solo Control Escolar puede hacer esto.');
         }
 
-        if (in_array($request->input('accion'), self::SOLO_CONTROL, true)) {
+        $accion = (string) $request->input('accion');
+
+        if (in_array($accion, self::SOLO_CONTROL, true)) {
             return $this->denegar('Solo Control Escolar puede hacer esto.');
+        }
+
+        // Lista blanca: cualquier acción desconocida se rechaza
+        if (!in_array($accion, self::ACCIONES_EDITAR, true)) {
+            return $this->denegar('Acción no permitida.');
         }
 
         $tipo = Permiso::where('rol', $usuario->rol)->value('tipo')
