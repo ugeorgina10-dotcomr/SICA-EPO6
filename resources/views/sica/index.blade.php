@@ -34,6 +34,7 @@ body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
 .tarjeta-grado.seleccionada{border:2px solid #800020 !important;background:#fdf8f8 !important}
 .tarjeta-grado.grado-desactivado{opacity:.4;pointer-events:none;cursor:not-allowed}
 .preview-credencial{width:100%;max-width:340px;border:1px solid #dee2e6;border-radius:10px;background:#eee;display:block;margin:0 auto}
+.preview-plantilla{height:240px;object-fit:contain;object-position:center;background:#fff}
 .badge-asignado{font-size:.7rem}
 /* ===== Responsivo ===== */
 @media (max-width:767.98px){
@@ -181,16 +182,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 <div id="panel-alumno" class="panel-perfil d-none">
  <!-- ===== PLANTILLA OFICIAL DE CREDENCIALES (solo Control Escolar, dentro del Portal del Alumno) ===== -->
  <div id="bloque-plantilla-oficial" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-id-card me-2"></i> Plantilla Oficial de Credenciales</h6>
- <p class="text-muted small mb-3">Reemplaza el diseño oficial (frente y reverso) para <b>todos los grupos del turno elegido</b>. Cada turno tiene su propia plantilla (cambia el C.C.T.). La imagen debe conservar las mismas proporciones y la misma distribución que la actual (frente 797×541, reverso 930×575 px, o mayor con la misma proporción) para que nombre, CURP, grado, grupo, turno y QR caigan en su lugar.</p>
- <div class="mb-3" style="max-width:260px">
- <label class="form-label small">Turno de la plantilla</label>
- <!-- CAMBIO: al cambiar este selector también se mueven los botones Matutino/Vespertino de abajo -->
- <select id="sel-turno-plantilla" class="form-select form-select-sm" onchange="setTurnoCred(this.value)">
- <option value="Matutino" selected>Matutino</option>
- <option value="Vespertino">Vespertino</option>
- </select>
- </div>
+ <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-id-card me-2"></i> Plantilla Oficial de Credenciales <span id="turno-plantilla-actual" class="badge bg-secondary ms-2 align-middle">Matutino</span></h6>
+ <p class="text-muted small mb-3">Reemplaza el diseño oficial (frente y reverso) para <b>todos los grupos del turno elegido</b> (usa los botones Matutino / Vespertino de abajo para cambiar de turno). Cada turno tiene su propia plantilla (cambia el C.C.T.). La imagen debe conservar las mismas proporciones y la misma distribución que la actual (frente 797×541, reverso 930×575 px, o mayor con la misma proporción) para que nombre, CURP, grado, grupo, turno y QR caigan en su lugar.</p>
  <div class="row g-3">
  <div class="col-md-6">
  <label class="form-label small">Frente (.png/.jpg)</label>
@@ -198,7 +191,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <input type="file" class="form-control" id="input-plantilla-oficial-frente" accept="image/png,image/jpeg">
  <button class="btn btn-vinotinto" type="button" onclick="subirPlantillaOficial('frente')">Actualizar</button>
  </div>
- <img id="prev-plantilla-oficial-frente" class="preview-credencial" alt="Frente actual">
+ <img id="prev-plantilla-oficial-frente" class="preview-credencial preview-plantilla" alt="Frente actual">
  </div>
  <div class="col-md-6">
  <label class="form-label small">Reverso (.png/.jpg)</label>
@@ -206,7 +199,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <input type="file" class="form-control" id="input-plantilla-oficial-reverso" accept="image/png,image/jpeg">
  <button class="btn btn-vinotinto" type="button" onclick="subirPlantillaOficial('reverso')">Actualizar</button>
  </div>
- <img id="prev-plantilla-oficial-reverso" class="preview-credencial" alt="Reverso actual">
+ <img id="prev-plantilla-oficial-reverso" class="preview-credencial preview-plantilla" alt="Reverso actual">
  </div>
  </div>
  <button class="btn btn-outline-dark btn-sm mt-3" onclick="restaurarPlantillaOficial()">
@@ -1466,7 +1459,8 @@ const RATIO_PLANTILLA = {frente: 797/541, reverso: 930/575};
 /* CAMBIO: muestra la plantilla del turno elegido. Si esa plantilla aún no está cargada,
  oculta la imagen para que no se quede la del otro turno. */
 function refrescarPreviewPlantillaOficial() {
- const t = $('#sel-turno-plantilla').val() || 'Matutino';
+ const t = turnoCred || 'Matutino';
+ $('#turno-plantilla-actual').text(t);
  ['frente','reverso'].forEach(l => {
   const src = (plantillasDefault[t] && plantillasDefault[t][l]) || '';
   if (src) $('#prev-plantilla-oficial-' + l).attr('src', src).show();
@@ -1475,7 +1469,7 @@ function refrescarPreviewPlantillaOficial() {
 }
 function subirPlantillaOficial(lado) {
  if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede cambiar la plantilla oficial.'); return; }
- const turno = $('#sel-turno-plantilla').val() || 'Matutino';
+ const turno = turnoCred || 'Matutino';
  const f = $('#input-plantilla-oficial-' + lado)[0].files[0];
  if (!f) { alert('Selecciona la imagen de la nueva plantilla.'); return; }
  if (!/^image\/(png|jpe?g)$/.test(f.type)) { alert('Solo se aceptan imágenes .png o .jpg.'); return; }
@@ -1522,7 +1516,7 @@ function subirPlantillaOficial(lado) {
 }
 function restaurarPlantillaOficial() {
  if (rolActivo !== 'control') return;
- const t = $('#sel-turno-plantilla').val() || 'Matutino';
+ const t = turnoCred || 'Matutino';
  if (!confirm('¿Volver a la plantilla original del turno ' + t + '?')) return;
  delete plantillaOficial[t];
  try { localStorage.setItem(LS_PL, JSON.stringify(plantillaOficial)); } catch (e) {}
@@ -1534,13 +1528,12 @@ function restaurarPlantillaOficial() {
 /* ============ PORTAL DEL ALUMNO / CREDENCIALES ============ */
 const qrImg = curp => new QRious({value:curp, size:220}).toDataURL();
 const alumnosCred = () => db.alumnos.filter(a => a.grado === credSel.grado && a.grupo === credSel.grupo && a.turno === turnoCred);
-/* CAMBIO: al elegir Matutino/Vespertino abajo, el selector "Turno de la plantilla" y la
+/* CAMBIO: al elegir Matutino/Vespertino abajo, la etiqueta del turno y la
  vista previa (frente y reverso) de arriba cambian al mismo turno. */
 function setTurnoCred(t) {
  turnoCred = t;
  $('#btn-turno-cred-matutino').toggleClass('btn-vinotinto', t === 'Matutino').toggleClass('btn-outline-dark bg-white', t !== 'Matutino');
  $('#btn-turno-cred-vespertino').toggleClass('btn-vinotinto', t === 'Vespertino').toggleClass('btn-outline-dark bg-white', t !== 'Vespertino');
- $('#sel-turno-plantilla').val(t);      // sincroniza el selector de la plantilla de arriba
  refrescarPreviewPlantillaOficial();    // cambia la vista previa de frente y reverso
  if (credSel) selCred(credSel.grado, credSel.grupo);
 }
