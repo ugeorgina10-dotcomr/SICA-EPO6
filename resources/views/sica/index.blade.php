@@ -133,7 +133,12 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="mb-4">
  <label class="form-label">Contraseña</label>
- <input type="password" id="input-clave" class="form-control shadow-sm" placeholder="Escribe tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') intentarEntrar()">
+ <div class="input-group shadow-sm">
+ <input type="password" id="input-clave" class="form-control" placeholder="Escribe tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter') intentarEntrar()">
+ <button type="button" id="btn-ver-clave" class="btn btn-outline-secondary" onclick="verOcultarClave()" aria-label="Mostrar contraseña" aria-pressed="false" style="min-width:104px">
+ <span id="txt-ver-clave">👁 Mostrar</span>
+ </button>
+ </div>
  </div>
  <button type="button" onclick="intentarEntrar()" class="btn btn-vinotinto w-100 py-3 rounded-3 shadow fs-5">Ingresar al Sistema</button>
 </form>
@@ -867,6 +872,17 @@ function actualizarCredenciales() {
  $('#aviso-sin-orientadores').toggleClass('d-none', db.orientadores.length > 0);
  }
 }
+/* Muestra u oculta lo que se escribe en la contraseña (útil en teléfono y en equipos nuevos) */
+function verOcultarClave() {
+ const campo = document.getElementById('input-clave');
+ const boton = document.getElementById('btn-ver-clave');
+ const mostrar = campo.type === 'password';
+ campo.type = mostrar ? 'text' : 'password';
+ document.getElementById('txt-ver-clave').textContent = mostrar ? '🙈 Ocultar' : '👁 Mostrar';
+ boton.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+ boton.setAttribute('aria-pressed', mostrar ? 'true' : 'false');
+ campo.focus();
+}
 function intentarEntrar() {
  const rol = $('#rol-select').val();
  const clave = $('#input-clave').val();
@@ -901,7 +917,8 @@ function intentarEntrar() {
  return;
  }
  if (orientadorActivo) sessionStorage.setItem('sica_orientador', orientadorActivo.id);   // para recordar quién eres si recargas la página
- $('#input-clave').val('');
+ $('#input-clave').val('').attr('type','password');
+ $('#txt-ver-clave').text('👁 Mostrar');
  cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  mostrarSeccion('vista-sistema');
