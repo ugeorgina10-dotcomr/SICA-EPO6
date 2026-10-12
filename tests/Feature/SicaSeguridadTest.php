@@ -137,7 +137,7 @@ class SicaClavesTest extends TestCase
     {
         $c = $this->como('control');
         foreach (['todominuscula1' => 'mayúscula', 'TODOMAYUSCULA1' => 'mayúscula', 'SinNumeroAlguno' => 'número',
-                  'Con Espacio 12' => 'espacios', 'MiPrepa06Nueva' => 'escuela', 'Epo6Segura123' => 'escuela'] as $clave => $pista) {
+                  'Con Espacio 12' => 'espacios', 'Segura#Clave12' => 'especiales', 'Contraseña2026X' => 'especiales', 'Clave_Segura12' => 'especiales', 'MiPrepa06Nueva' => 'escuela', 'Epo6Segura123' => 'escuela'] as $clave => $pista) {
             $r = $c->postJson('/api/sica/claves/rol', ['rol' => 'director', 'password' => $clave, 'password_confirmation' => $clave]);
             $r->assertStatus(422);
             $this->assertStringContainsStringIgnoringCase($pista, $r->json('errors.password.0'), $clave);
@@ -207,5 +207,22 @@ class SicaClavesTest extends TestCase
         $this->postJson('/auth/login', ['email' => 'director@epo6.edu.mx', 'password' => 'Restablecida2026'])->assertOk();
 
         $this->artisan('sica:restablecer-claves', ['--clave' => 'debil'])->assertFailed();
+    }
+
+    public function test_borrar_todas_no_toca_ningun_dato_de_los_roles(): void
+    {
+        $g = \App\Models\Grupo::create(['grado' => 1, 'nombre' => '1° 1', 'turno' => 'Matutino']);
+        \App\Models\Alumno::create(['matricula' => 'AAAA000101HMCXXX01', 'nombre' => 'Alumno Uno', 'grupo_id' => $g->id]);
+        Orientador::create(['nombre' => 'Ana']);
+        \App\Models\Permiso::updateOrCreate(['rol' => 'director'], ['tipo' => 'editar']);
+        $antes = [User::count(), DB::table('grupos')->count(), DB::table('alumnos')->count(), DB::table('orientadores')->count(), DB::table('permisos')->count()];
+        $correos = User::orderBy('id')->pluck('email', 'rol')->all();
+
+        $this->como('control')->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'prepa06'])->assertOk();
+
+        $despues = [User::count(), DB::table('grupos')->count(), DB::table('alumnos')->count(), DB::table('orientadores')->count(), DB::table('permisos')->count()];
+        $this->assertSame($antes, $despues);
+        $this->assertSame($correos, User::orderBy('id')->pluck('email', 'rol')->all());   // mismos roles y correos
+        $this->assertSame('editar', DB::table('permisos')->where('rol', 'director')->value('tipo'));
     }
 }

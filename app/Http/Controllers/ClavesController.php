@@ -30,7 +30,7 @@ class ClavesController extends Controller
 
     /**
      * Reglas de una contraseña nueva (las mismas indicaciones que muestra la pantalla):
-     * 8 a 72 caracteres, mayúscula, minúscula, número, sin espacios y sin usar el nombre de la escuela ni la clave inicial.
+     * 8 a 72 caracteres, mayúscula, minúscula, número, solo letras y números (sin caracteres especiales), sin espacios y sin usar el nombre de la escuela ni la clave inicial.
      */
     public static function reglasClave(): array
     {
@@ -40,6 +40,8 @@ class ClavesController extends Controller
                 $valor = (string) $valor;
                 if (preg_match('/\s/u', $valor)) {
                     $fallar('La contraseña no puede llevar espacios.');
+                } elseif (!preg_match('/^[A-Za-z0-9]+$/', $valor)) {
+                    $fallar('La contraseña solo puede llevar letras (A-Z) y números; no uses caracteres especiales ni acentos.');
                 } elseif (!preg_match('/\p{Lu}/u', $valor) || !preg_match('/\p{Ll}/u', $valor)) {
                     $fallar('La contraseña debe llevar al menos una letra mayúscula y una minúscula.');
                 } elseif (!preg_match('/\d/', $valor)) {

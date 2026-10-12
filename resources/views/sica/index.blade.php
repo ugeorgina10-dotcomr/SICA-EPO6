@@ -513,12 +513,13 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="mt-3 p-3 rounded-3 small" style="background:#fdf8f8;border:1px solid #eee">
  <div class="fw-semibold mb-1" style="color:#800020"><i class="fa-solid fa-circle-info me-1"></i> Cómo hacer una contraseña segura</div>
  <ul class="list-unstyled mb-2" id="requisitos-clave">
- <li data-req="largo"><i class="fa-regular fa-circle me-2"></i>Mínimo 8 caracteres (máximo 72).</li>
- <li data-req="mayus"><i class="fa-regular fa-circle me-2"></i>Una letra mayúscula y una minúscula.</li>
- <li data-req="numero"><i class="fa-regular fa-circle me-2"></i>Al menos un número.</li>
- <li data-req="espacios"><i class="fa-regular fa-circle me-2"></i>Sin espacios.</li>
- <li data-req="escuela"><i class="fa-regular fa-circle me-2"></i>Sin el nombre de la escuela ni la clave inicial (prepa06, epo6).</li>
- <li data-req="igual"><i class="fa-regular fa-circle me-2"></i>Las dos casillas deben coincidir.</li>
+ <li data-req="largo"><span class="marca me-2">○</span>Mínimo 8 caracteres (máximo 72).</li>
+ <li data-req="mayus"><span class="marca me-2">○</span>Una letra mayúscula y una minúscula.</li>
+ <li data-req="numero"><span class="marca me-2">○</span>Al menos un número.</li>
+ <li data-req="espacios"><span class="marca me-2">○</span>Sin espacios.</li>
+ <li data-req="especial"><span class="marca me-2">○</span>Solo letras y números: sin caracteres especiales (@ # $ % & * . - _ ! ?) ni acentos.</li>
+ <li data-req="escuela"><span class="marca me-2">○</span>Sin el nombre de la escuela ni la clave inicial (prepa06, epo6).</li>
+ <li data-req="igual"><span class="marca me-2">○</span>Las dos casillas deben coincidir.</li>
  </ul>
  <div class="text-muted">
  Consejo: junta dos o tres palabras que no tengan relación entre sí y agrega números, por ejemplo <span class="fw-semibold">LunaTrenRoble58</span> (no uses este ejemplo).
@@ -528,15 +529,15 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" id="ver-claves" onchange="verClavesNuevas()"><label class="form-check-label" for="ver-claves">Mostrar lo que escribo</label></div>
  <div id="resumen-claves" class="mt-2 small text-muted"></div>
  <div id="lista-claves-orientadores" class="mt-2 small"></div>
- <hr class="my-4">
- <div class="p-3 rounded-3" style="border:1px solid #dc3545;background:#fff8f8">
- <div class="fw-bold text-danger mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> Borrar todas las contraseñas</div>
- <p class="small mb-2">Elimina de la base de datos la contraseña de <b>todos los roles (incluida la tuya)</b> y la propia de cada orientador, además de las sesiones abiertas. No queda guardado nada y <b>nadie podrá iniciar sesión</b> hasta que quien administra el servidor ejecute <code>php artisan sica:restablecer-claves</code>. No se puede deshacer.</p>
- <button type="button" id="btn-abrir-borrar" onclick="$('#confirmar-borrado').toggleClass('d-none')" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash me-1"></i> Borrar todas las contraseñas…</button>
- <div id="confirmar-borrado" class="row g-2 align-items-end mt-2 d-none">
+ <div id="zona-borrar-claves" class="mt-3 small d-none">
+ <a href="#" class="text-muted text-decoration-underline" onclick="$('#confirmar-borrado').toggleClass('d-none'); return false;">Borrar todas las contraseñas…</a>
+ <div id="confirmar-borrado" class="d-none mt-2 p-3 rounded-3" style="border:1px solid #dee2e6;background:#fafafa">
+ <p class="mb-2 text-muted">Las contraseñas se guardan con hash: no se pueden ver ni recuperar. Si necesitas empezar de cero, esto borra solo las contraseñas de todos los roles (incluida la tuya) y la propia de cada orientador, y cierra las sesiones. <b>No se borra ningún dato</b> (alumnos, grupos, horarios, orientadores, permisos ni plantillas). Después nadie podrá entrar hasta que quien administra el servidor ejecute <code>php artisan sica:restablecer-claves</code>.</p>
+ <div class="row g-2 align-items-end">
  <div class="col-md-4"><label class="form-label small">Escribe BORRAR TODO</label><input type="text" id="borrar-confirmacion" class="form-control form-control-sm" autocomplete="off"></div>
  <div class="col-md-4"><label class="form-label small">Tu contraseña actual</label><input type="password" id="borrar-clave-actual" class="form-control form-control-sm" autocomplete="current-password"></div>
- <div class="col-md-4"><button type="button" onclick="borrarTodasLasClaves()" class="btn btn-danger btn-sm w-100 py-2 fw-semibold">Borrar definitivamente</button></div>
+ <div class="col-md-4"><button type="button" onclick="borrarTodasLasClaves()" class="btn btn-outline-danger btn-sm w-100 py-2">Borrar contraseñas</button></div>
+ </div>
  </div>
  </div>
  </div>
@@ -1105,6 +1106,8 @@ function cargarClaves() {
 }
 function cambiarCuentaClave() {
  const v = $('#select-cuenta-clave').val() || '';
+ $('#zona-borrar-claves').toggleClass('d-none', v !== 'rol:control');   // el borrado total solo aparece al elegir Control Escolar
+ if (v !== 'rol:control') { $('#confirmar-borrado').addClass('d-none'); $('#borrar-confirmacion,#borrar-clave-actual').val(''); }
  $('#campo-clave-actual').toggleClass('d-none', v !== 'rol:control');
  const o = v.startsWith('ori:') ? clavesOrientadores.find(x => x.id === v.slice(4)) : null;
  $('#btn-quitar-clave').toggleClass('d-none', !(o && o.propia));
@@ -1117,13 +1120,14 @@ function revisarRequisitosClave() {
   mayus: /\p{Lu}/u.test(n) && /\p{Ll}/u.test(n),
   numero: /\d/.test(n),
   espacios: n.length > 0 && !/\s/.test(n),
+  especial: n.length > 0 && /^[A-Za-z0-9]+$/.test(n),
   escuela: n.length > 0 && !/prepa0?6|epo0?6/i.test(n),
   igual: n.length > 0 && n === c
  };
  $('#requisitos-clave li').each(function () {
   const cumple = ok[$(this).data('req')];
   $(this).toggleClass('text-success fw-semibold', cumple);
-  $(this).find('i').attr('class', (cumple ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle') + ' me-2');
+  $(this).find('.marca').text(cumple ? '✔' : '○');
  });
  return Object.values(ok).every(Boolean);
 }
