@@ -15,6 +15,18 @@ class Orientador extends Model
         'nombre',
     ];
 
+    // La contraseña nunca sale en JSON ni se llena en masa: solo la cambia ClavesController
+    protected $hidden = [
+        'password',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'password' => 'hashed',   // al asignarla se guarda con bcrypt
+        ];
+    }
+
     // Relación: Un orientador puede tener asignados varios grupos
     public function grupos()
     {

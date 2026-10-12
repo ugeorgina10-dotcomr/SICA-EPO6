@@ -480,6 +480,39 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div id="resumen-permisos" class="mt-3 small text-muted"></div>
  </div>
+<div id="bloque-claves" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
+ <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-key me-2"></i> Contraseñas</h6>
+ <p class="text-muted small mb-3">Cambia la contraseña de cada rol o asigna una contraseña propia a cada orientador para que no compartan la misma. Un orientador sin contraseña propia entra con la general del rol Orientador.</p>
+ <div class="row g-3 align-items-end">
+ <div class="col-md-4"><label class="form-label small">Cuenta</label>
+ <select id="select-cuenta-clave" class="form-select form-select-sm" onchange="cambiarCuentaClave()">
+ <optgroup label="Roles">
+ <option value="rol:director">Director</option>
+ <option value="rol:subdirector">Subdirector</option>
+ <option value="rol:orientador">Orientador (contraseña general)</option>
+ <option value="rol:control">Control Escolar (mi cuenta)</option>
+ </optgroup>
+ <optgroup label="Orientadores (contraseña propia)" id="grupo-orientadores-clave"></optgroup>
+ </select>
+ </div>
+ <div class="col-md-8 d-none" id="campo-clave-actual"><label class="form-label small">Contraseña actual</label>
+ <input type="password" id="clave-actual" class="form-control form-control-sm" autocomplete="current-password">
+ </div>
+ <div class="col-md-4"><label class="form-label small">Contraseña nueva (mínimo 8 caracteres)</label>
+ <input type="password" id="clave-nueva" class="form-control form-control-sm" autocomplete="new-password" maxlength="72">
+ </div>
+ <div class="col-md-4"><label class="form-label small">Repite la contraseña nueva</label>
+ <input type="password" id="clave-confirmar" class="form-control form-control-sm" autocomplete="new-password" maxlength="72">
+ </div>
+ <div class="col-md-4 d-flex gap-2">
+ <button onclick="guardarClave()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+ <button onclick="quitarClaveOrientador()" id="btn-quitar-clave" class="btn btn-outline-secondary btn-sm py-2 d-none text-nowrap" title="El orientador vuelve a entrar con la contraseña general">Quitar propia</button>
+ </div>
+ </div>
+ <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" id="ver-claves" onchange="verClavesNuevas()"><label class="form-check-label" for="ver-claves">Mostrar lo que escribo</label></div>
+ <div id="resumen-claves" class="mt-2 small text-muted"></div>
+ <div id="lista-claves-orientadores" class="mt-2 small"></div>
+ </div> 
 </div>
 <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
  <button onclick="regresarPanel()" id="btn-regresar-panel" class="btn btn-vinotinto px-4 rounded-pill fw-semibold shadow-sm d-none"><i class="fa-solid fa-arrow-left me-2"></i> Regresar</button>
@@ -897,7 +930,7 @@ function intentarEntrar() {
  fetch('/auth/login', {
  method: 'POST',
  headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
- body: JSON.stringify({email: $('#input-correo').val(), password: clave})
+ body: JSON.stringify({email: $('#input-correo').val(), password: clave, orientador: orientadorActivo ? orientadorActivo.nombre : null})
  })
  .then(r => r.json().then(d => ({status: r.status, ...d})))
  .then(d => {
@@ -1002,6 +1035,8 @@ function aplicarPermisos(rol) {
  $('.btn-accion-restringida').toggleClass('bloqueado-permiso', !ok).attr('title', ok ? null : 'Requiere autorización de Control Escolar');
  $('#aviso-camara-bloqueada').toggleClass('d-none', ok);
  $('#bloque-permisos-roles').toggleClass('d-none', rol !== 'control');
+  $('#bloque-claves').toggleClass('d-none', rol !== 'control');
+ if (rol === 'control') cargarClaves();
  $('#bloque-plantilla-oficial').toggleClass('d-none', rol !== 'control'); // solo Control Escolar ve el bloque
  configurarPanelOrientador();
 }
@@ -1010,6 +1045,81 @@ function guardarPermisoRol() {
  db.permisos[rol] = tarea; save();
  $('#resumen-permisos').text('Permiso actualizado: ' + nombresRoles[rol] + ' → ' + (tarea === 'editar' ? 'Puede editar / realizar acciones (incluye cámara)' : 'Solo visualizar'));
  sincronizarConServidor('guardar_permisos', db.permisos);
+}
+/* ============ CONTRASEÑAS (solo Control Escolar) ============ */
+let clavesOrientadores = [];   // [{id, nombre, propia}] que devuelve el servidor
+function llamarClaves(url, metodo, cuerpo, reintento) {
+ return fetch(url, {
+  method: metodo,
+  headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+  body: cuerpo ? JSON.stringify(cuerpo) : undefined
+ }).then(r => {
+  if (r.status === 419 && !reintento) return refrescarCsrf().then(() => llamarClaves(url, metodo, cuerpo, true));
+  if (r.status === 401) { sesionExpirada(); return {ok:false, mensaje:'Tu sesión expiró.'}; }
+  return r.json().catch(() => ({})).then(d => {
+   // Laravel responde los errores de validación con {message, errors}
+   if (!r.ok && !d.mensaje) d.mensaje = (d.errors && Object.values(d.errors)[0][0]) || d.message || 'No se pudo guardar.';
+   return {...d, ok: r.ok && d.ok !== false};
+  });
+ });
+}
+function cargarClaves() {
+ return llamarClaves('/api/sica/claves', 'GET').then(d => {
+  if (!d.ok) return;
+  clavesOrientadores = d.orientadores || [];
+  const previa = $('#select-cuenta-clave').val();
+  $('#grupo-orientadores-clave').html(clavesOrientadores.map(o => '<option value="ori:' + esc(o.id) + '">' + esc(o.nombre) + (o.propia ? ' ✔' : '') + '</option>').join(''));
+  if (previa && $('#select-cuenta-clave option[value="' + previa + '"]').length) $('#select-cuenta-clave').val(previa);
+  $('#lista-claves-orientadores').html(clavesOrientadores.length
+   ? '<span class="fw-semibold" style="color:#800020">Orientadores:</span> ' + clavesOrientadores.map(o => esc(o.nombre) + ' <span class="badge ' + (o.propia ? 'bg-success' : 'bg-secondary') + '">' + (o.propia ? 'Contraseña propia' : 'Contraseña general') + '</span>').join(' · ')
+   : '');
+  cambiarCuentaClave();
+ });
+}
+function cambiarCuentaClave() {
+ const v = $('#select-cuenta-clave').val() || '';
+ $('#campo-clave-actual').toggleClass('d-none', v !== 'rol:control');
+ const o = v.startsWith('ori:') ? clavesOrientadores.find(x => x.id === v.slice(4)) : null;
+ $('#btn-quitar-clave').toggleClass('d-none', !(o && o.propia));
+}
+function verClavesNuevas() {
+ const t = $('#ver-claves').is(':checked') ? 'text' : 'password';
+ $('#clave-actual,#clave-nueva,#clave-confirmar').attr('type', t);
+}
+function limpiarCamposClave() {
+ $('#clave-actual,#clave-nueva,#clave-confirmar').val('');
+ $('#ver-claves').prop('checked', false); verClavesNuevas();
+}
+function guardarClave() {
+ const v = $('#select-cuenta-clave').val() || '';
+ const nueva = $('#clave-nueva').val(), conf = $('#clave-confirmar').val();
+ if (nueva.length < 8) { alert('La contraseña nueva debe tener al menos 8 caracteres.'); return; }
+ if (nueva !== conf) { alert('Las dos contraseñas nuevas no coinciden.'); return; }
+ const nombre = $('#select-cuenta-clave option:selected').text().replace(' ✔', '');
+ let url, cuerpo;
+ if (v.startsWith('ori:')) {
+  url = '/api/sica/claves/orientador';
+  cuerpo = {orientador_id: v.slice(4), password: nueva, password_confirmation: conf};
+ } else {
+  url = '/api/sica/claves/rol';
+  cuerpo = {rol: v.slice(4), password: nueva, password_confirmation: conf, password_actual: $('#clave-actual').val()};
+ }
+ llamarClaves(url, 'POST', cuerpo).then(d => {
+  if (!d.ok) { $('#resumen-claves').text(''); alert(d.mensaje || 'No se pudo guardar la contraseña.'); return; }
+  limpiarCamposClave();
+  $('#resumen-claves').text('Contraseña actualizada: ' + nombre + '. Entrégasela a esa persona; el sistema no la vuelve a mostrar.');
+  cargarClaves();
+ }).catch(() => alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
+}
+function quitarClaveOrientador() {
+ const v = $('#select-cuenta-clave').val() || '';
+ if (!v.startsWith('ori:')) return;
+ if (!confirm('Este orientador volverá a entrar con la contraseña general del rol Orientador. ¿Continuar?')) return;
+ llamarClaves('/api/sica/claves/orientador/' + encodeURIComponent(v.slice(4)), 'DELETE').then(d => {
+  if (!d.ok) { alert(d.mensaje || 'No se pudo quitar la contraseña propia.'); return; }
+  $('#resumen-claves').text('Se quitó la contraseña propia. Ahora usa la general del rol Orientador.');
+  cargarClaves();
+ });
 }
 /* ============ ESCÁNER QR (cámara) ============ */
 function iniciarScanner(el, modoFn) {

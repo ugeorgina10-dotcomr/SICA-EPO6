@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ControlEscolarController;
 use App\Models\Orientador;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ClavesController;
 
 // ===== Públicas =====
 
@@ -62,4 +63,12 @@ Route::middleware('auth')->group(function () {
         ->whereIn('lado', ['frente', 'reverso'])
         ->middleware('sica:control')
         ->name('sica.plantilla');
+    
+        // Contraseñas: solo Control Escolar (cambiar la de cada rol y poner una propia a cada orientador)
+    Route::middleware(['sica:control', 'throttle:20,1'])->prefix('/api/sica/claves')->group(function () {
+        Route::get('/', [ClavesController::class, 'index'])->name('sica.claves');
+        Route::post('/rol', [ClavesController::class, 'rol'])->name('sica.claves.rol');
+        Route::post('/orientador', [ClavesController::class, 'orientador'])->name('sica.claves.orientador');
+        Route::delete('/orientador/{orientador}', [ClavesController::class, 'quitarOrientador'])->name('sica.claves.quitar');
+    });
 });

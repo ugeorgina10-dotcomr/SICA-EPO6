@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Orientador;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -16,7 +19,11 @@ class AuthController extends Controller
         $credenciales = $request->validate([
             'email'    => 'required|email|max:150',
             'password' => 'required|string|max:200',
+            'orientador' => 'nullable|string|max:150',   // nombre elegido en la lista (solo rol Orientador)
         ]);
+
+        $nombreOrientador = $credenciales['orientador'] ?? null;
+        unset($credenciales['orientador']);
 
         $credenciales['email'] = Str::lower(trim($credenciales['email']));
         $clave = $credenciales['email'] . '|' . $request->ip();
@@ -30,7 +37,9 @@ class AuthController extends Controller
             ], 429);
         }
 
-        if (!Auth::attempt($credenciales, false)) {   // false = sin "recordarme": la sesión no queda abierta para siempre
+        $usuario = $this->usuarioValido($credenciales['email'], $credenciales['password'], $nombreOrientador);
+
+        if (!$usuario) {
             RateLimiter::hit($clave, 60);
 
             return response()->json([
@@ -40,6 +49,7 @@ class AuthController extends Controller
         }
 
         RateLimiter::clear($clave);
+        Auth::login($usuario, false);   // false = sin "recordarme": la sesión no queda abierta para siempre
         $request->session()->regenerate();
 
         return response()->json($this->datosUsuario($request));
@@ -63,6 +73,36 @@ class AuthController extends Controller
         }
 
         return response()->json($this->datosUsuario($request));
+    }
+
+    /**
+     * Devuelve la cuenta si la contraseña es correcta; si no, null.
+     * Rol Orientador: se pide el nombre y se compara con la clave PROPIA de ese orientador;
+     * si Control Escolar no le puso una, vale la contraseña general del rol.
+     */
+    private function usuarioValido(string $email, string $password, ?string $nombreOrientador): ?User
+    {
+        $usuario = User::where('email', $email)->first();
+
+        if (!$usuario) {
+            Hash::make($password);   // gasta el mismo tiempo para no revelar qué correos existen
+
+            return null;
+        }
+
+        $hash = $usuario->getAuthPassword();
+
+        if ($usuario->rol === 'orientador') {
+            $orientador = $nombreOrientador ? Orientador::where('nombre', $nombreOrientador)->first() : null;
+
+            if (!$orientador) {
+                return null;
+            }
+
+            $hash = $orientador->password ?: $hash;
+        }
+
+        return Hash::check($password, $hash) ? $usuario : null;
     }
 
     private function datosUsuario(Request $request): array
