@@ -23,6 +23,12 @@ class CrearUsuarios extends Command
                 continue;
             }
 
+            // Contraseña borrada a propósito desde Control Escolar: NO se vuelve a poner la inicial en cada despliegue
+            if ((string) $usuario->getAuthPassword() === '') {
+                $this->warn("Sin contraseña (borrada): {$cuenta['rol']} | {$cuenta['email']}. Usa:  php artisan sica:restablecer-claves");
+                continue;
+            }
+
             // Cuenta vieja con la contraseña sin hash: se corrige. Si ya es hash, NO se toca (puede haberla cambiado su dueño).
             if (!str_starts_with((string) $usuario->getAuthPassword(), '$2y$')) {
                 $usuario->password = UsuarioSeeder::CLAVE_INICIAL;

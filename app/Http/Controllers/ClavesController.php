@@ -6,6 +6,7 @@ use App\Models\Orientador;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -19,6 +20,36 @@ use Illuminate\Validation\Rule;
 class ClavesController extends Controller
 {
     private const ROLES = ['control', 'director', 'subdirector', 'orientador'];
+
+    public const MENSAJES = [
+        'password.required'  => 'Escribe la contraseña nueva.',
+        'password.min'       => 'La contraseña debe tener al menos 8 caracteres.',
+        'password.max'       => 'La contraseña no puede tener más de 72 caracteres.',
+        'password.confirmed' => 'Las dos contraseñas no coinciden.',
+    ];
+
+    /**
+     * Reglas de una contraseña nueva (las mismas indicaciones que muestra la pantalla):
+     * 8 a 72 caracteres, mayúscula, minúscula, número, sin espacios y sin usar el nombre de la escuela ni la clave inicial.
+     */
+    public static function reglasClave(): array
+    {
+        return [
+            'required', 'string', 'min:8', 'max:72', 'confirmed',
+            function (string $atributo, mixed $valor, \Closure $fallar) {
+                $valor = (string) $valor;
+                if (preg_match('/\s/u', $valor)) {
+                    $fallar('La contraseña no puede llevar espacios.');
+                } elseif (!preg_match('/\p{Lu}/u', $valor) || !preg_match('/\p{Ll}/u', $valor)) {
+                    $fallar('La contraseña debe llevar al menos una letra mayúscula y una minúscula.');
+                } elseif (!preg_match('/\d/', $valor)) {
+                    $fallar('La contraseña debe llevar al menos un número.');
+                } elseif (preg_match('/prepa0?6|epo0?6/i', $valor)) {
+                    $fallar('No uses el nombre de la escuela ni la contraseña inicial (prepa06, epo6).');
+                }
+            },
+        ];
+    }
 
     /** Lista de orientadores y si ya tienen clave propia (solo un sí/no, nunca la clave ni su hash). */
     public function index(): JsonResponse
@@ -36,9 +67,9 @@ class ClavesController extends Controller
     {
         $d = $request->validate([
             'rol'             => ['required', Rule::in(self::ROLES)],
-            'password'        => ['required', 'string', 'min:8', 'max:72', 'confirmed'],
+            'password'        => self::reglasClave(),
             'password_actual' => ['nullable', 'string', 'max:200'],
-        ]);
+        ], self::MENSAJES);
 
         $usuario = User::where('rol', $d['rol'])->first();
 
@@ -72,8 +103,8 @@ class ClavesController extends Controller
     {
         $d = $request->validate([
             'orientador_id' => ['required', 'integer', 'exists:orientadores,id'],
-            'password'      => ['required', 'string', 'min:8', 'max:72', 'confirmed'],
-        ]);
+            'password'      => self::reglasClave(),
+        ], self::MENSAJES);
 
         if ($this->laUsaOtraCuenta($d['password'], null)) {
             return response()->json(['ok' => false, 'mensaje' => 'Esa contraseña ya la usa un rol. Elige una distinta.'], 422);
@@ -93,6 +124,36 @@ class ClavesController extends Controller
         $orientador->save();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Borra TODAS las contraseñas: las de los roles, las propias de cada orientador, los tokens de "recordarme",
+     * los tokens de restablecimiento y las sesiones abiertas. No queda ni siquiera un hash guardado.
+     * Después nadie puede iniciar sesión hasta ejecutar en el servidor:  php artisan sica:restablecer-claves
+     */
+    public function borrarTodas(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'confirmacion'    => ['required', 'in:BORRAR TODO'],
+            'password_actual' => ['required', 'string', 'max:200'],
+        ], ['confirmacion.in' => 'Escribe exactamente BORRAR TODO para confirmar.']);
+
+        if (!Hash::check($d['password_actual'], $request->user()->getAuthPassword())) {
+            return response()->json(['ok' => false, 'mensaje' => 'Tu contraseña actual no es correcta.'], 422);
+        }
+
+        DB::transaction(function () {
+            DB::table('users')->update(['password' => '', 'remember_token' => null]);
+            DB::table('orientadores')->update(['password' => null]);
+            DB::table('password_reset_tokens')->delete();
+            DB::table('sessions')->delete();
+        });
+
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json(['ok' => true, 'csrf' => csrf_token()]);
     }
 
     /** ¿La contraseña nueva ya es la de otra cuenta de rol? (se compara contra sus hashes) */
