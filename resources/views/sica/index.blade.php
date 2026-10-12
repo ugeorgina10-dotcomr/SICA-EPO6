@@ -144,6 +144,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </button>
  </div>
  </div>
+ <div class="text-end mb-3" style="margin-top:-1rem"><a href="#" class="small text-muted text-decoration-underline" onclick="mostrarOlvideClave(); return false;">¿Olvidaste tu contraseña?</a></div>
+ <div id="aviso-olvide" class="small p-3 rounded-3 mb-3 d-none" style="background:#fdf8f8;border:1px solid #eee;color:#444"></div>
  <button type="button" onclick="intentarEntrar()" class="btn btn-vinotinto w-100 py-3 rounded-3 shadow fs-5">Ingresar al Sistema</button>
 </form>
 </div>
@@ -530,15 +532,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div id="resumen-claves" class="mt-2 small text-muted"></div>
  <div id="lista-claves-orientadores" class="mt-2 small"></div>
  <div id="zona-borrar-claves" class="mt-3 small d-none">
- <a href="#" class="text-muted text-decoration-underline" onclick="$('#confirmar-borrado').toggleClass('d-none'); return false;">Borrar todas las contraseñas…</a>
- <div id="confirmar-borrado" class="d-none mt-2 p-3 rounded-3" style="border:1px solid #dee2e6;background:#fafafa">
- <p class="mb-2 text-muted">Las contraseñas se guardan con hash: no se pueden ver ni recuperar. Si necesitas empezar de cero, esto borra solo las contraseñas de todos los roles (incluida la tuya) y la propia de cada orientador, y cierra las sesiones. <b>No se borra ningún dato</b> (alumnos, grupos, horarios, orientadores, permisos ni plantillas). Después nadie podrá entrar hasta que quien administra el servidor ejecute <code>php artisan sica:restablecer-claves</code>.</p>
- <div class="row g-2 align-items-end">
- <div class="col-md-4"><label class="form-label small">Escribe BORRAR TODO</label><input type="text" id="borrar-confirmacion" class="form-control form-control-sm" autocomplete="off"></div>
- <div class="col-md-4"><label class="form-label small">Tu contraseña actual</label><input type="password" id="borrar-clave-actual" class="form-control form-control-sm" autocomplete="current-password"></div>
- <div class="col-md-4"><button type="button" onclick="borrarTodasLasClaves()" class="btn btn-outline-danger btn-sm w-100 py-2">Borrar contraseñas</button></div>
- </div>
- </div>
+ <a href="#" class="text-muted text-decoration-underline" onclick="borrarClaveCuenta(); return false;">¿La olvidó? Borrar la contraseña guardada de esta cuenta…</a>
+ <div class="text-muted mt-1">Solo se borra la contraseña (nada más): la persona no podrá entrar hasta que generes una nueva aquí mismo.</div>
  </div>
  </div>
 </div>
@@ -919,6 +914,7 @@ function poblarSelectOrientadorHorario() {
 /* ============ NAVEGACIÓN / ROLES ============ */
 function actualizarCredenciales() {
  const rol = $('#rol-select').val();
+ $('#aviso-olvide').addClass('d-none');
  $('#input-correo').val(correosRoles[rol] || '');
  const esOrientador = rol === 'orientador';
  $('#campo-orientador-login').toggleClass('d-none', !esOrientador);
@@ -1091,26 +1087,35 @@ function llamarClaves(url, metodo, cuerpo, reintento) {
   });
  });
 }
+const NOMBRES_CUENTA = {director: 'Director', subdirector: 'Subdirector', orientador: 'Orientador (contraseña general)', control: 'Control Escolar'};
+let clavesRoles = [];   // [{rol, borrada}]
 function cargarClaves() {
  return llamarClaves('/api/sica/claves', 'GET').then(d => {
   if (!d.ok) return;
   clavesOrientadores = d.orientadores || [];
+  clavesRoles = d.roles || [];
   const previa = $('#select-cuenta-clave').val();
-  $('#grupo-orientadores-clave').html(clavesOrientadores.map(o => '<option value="ori:' + esc(o.id) + '">' + esc(o.nombre) + (o.propia ? ' ✔' : '') + '</option>').join(''));
+  $('#grupo-orientadores-clave').html(clavesOrientadores.map(o => '<option value="ori:' + esc(o.id) + '">' + esc(o.nombre) + (o.estado === 'propia' ? ' ✔' : o.estado === 'borrada' ? ' (sin contraseña)' : '') + '</option>').join(''));
   if (previa && $('#select-cuenta-clave option[value="' + previa + '"]').length) $('#select-cuenta-clave').val(previa);
-  $('#lista-claves-orientadores').html(clavesOrientadores.length
-   ? '<span class="fw-semibold" style="color:#800020">Orientadores:</span> ' + clavesOrientadores.map(o => esc(o.nombre) + ' <span class="badge ' + (o.propia ? 'bg-success' : 'bg-secondary') + '">' + (o.propia ? 'Contraseña propia' : 'Contraseña general') + '</span>').join(' · ')
-   : '');
+  const insignia = est => est === 'propia' ? '<span class="badge bg-success">Contraseña propia</span>'
+   : est === 'borrada' ? '<span class="badge bg-danger">Sin contraseña: genera una nueva</span>'
+   : '<span class="badge bg-secondary">Contraseña general</span>';
+  const roles = clavesRoles.map(r => esc(NOMBRES_CUENTA[r.rol] || r.rol) + ' ' + (r.borrada ? '<span class="badge bg-danger">Sin contraseña: genera una nueva</span>' : '<span class="badge bg-success">Con contraseña</span>')).join(' · ');
+  $('#lista-claves-orientadores').html(
+   (roles ? '<div><span class="fw-semibold" style="color:#800020">Roles:</span> ' + roles + '</div>' : '') +
+   (clavesOrientadores.length ? '<div class="mt-1"><span class="fw-semibold" style="color:#800020">Orientadores:</span> ' + clavesOrientadores.map(o => esc(o.nombre) + ' ' + insignia(o.estado)).join(' · ') + '</div>' : ''));
   cambiarCuentaClave();
  });
 }
 function cambiarCuentaClave() {
  const v = $('#select-cuenta-clave').val() || '';
- $('#zona-borrar-claves').toggleClass('d-none', v !== 'rol:control');   // el borrado total solo aparece al elegir Control Escolar
- if (v !== 'rol:control') { $('#confirmar-borrado').addClass('d-none'); $('#borrar-confirmacion,#borrar-clave-actual').val(''); }
  $('#campo-clave-actual').toggleClass('d-none', v !== 'rol:control');
  const o = v.startsWith('ori:') ? clavesOrientadores.find(x => x.id === v.slice(4)) : null;
- $('#btn-quitar-clave').toggleClass('d-none', !(o && o.propia));
+ const r = v.startsWith('rol:') ? clavesRoles.find(x => x.rol === v.slice(4)) : null;
+ $('#btn-quitar-clave').toggleClass('d-none', !(o && o.estado === 'propia'));
+ // El enlace de "olvidó su contraseña" aparece con cualquier cuenta menos la de Control Escolar y las que ya están borradas
+ const yaBorrada = (o && o.estado === 'borrada') || (r && r.borrada);
+ $('#zona-borrar-claves').toggleClass('d-none', v === 'rol:control' || !!yaBorrada || !v);
 }
 /* Indicaciones en vivo: se marcan en verde las que ya cumple la contraseña escrita */
 function revisarRequisitosClave() {
@@ -1130,18 +1135,6 @@ function revisarRequisitosClave() {
   $(this).find('.marca').text(cumple ? '✔' : '○');
  });
  return Object.values(ok).every(Boolean);
-}
-function borrarTodasLasClaves() {
- const conf = $('#borrar-confirmacion').val().trim(), actual = $('#borrar-clave-actual').val();
- if (conf !== 'BORRAR TODO') { alert('Escribe exactamente BORRAR TODO para confirmar.'); return; }
- if (!actual) { alert('Escribe tu contraseña actual.'); return; }
- if (!confirm('Se borrarán las contraseñas de TODOS los roles y de todos los orientadores, y nadie podrá entrar hasta restablecerlas desde el servidor. ¿Seguro?')) return;
- llamarClaves('/api/sica/claves/todas', 'DELETE', {confirmacion: conf, password_actual: actual}).then(d => {
-  if (!d.ok) { alert(d.mensaje || 'No se pudieron borrar las contraseñas.'); return; }
-  $('#borrar-confirmacion,#borrar-clave-actual').val('');
-  alert('Listo: se borraron todas las contraseñas. Para volver a entrar, restablécelas desde el servidor con: php artisan sica:restablecer-claves');
-  cerrarSesion();
- }).catch(() => alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
 }
 function verClavesNuevas() {
  const t = $('#ver-claves').is(':checked') ? 'text' : 'password';
@@ -1170,6 +1163,30 @@ function guardarClave() {
   $('#resumen-claves').text('Contraseña actualizada: ' + nombre + '. Entrégasela a esa persona; el sistema no la vuelve a mostrar.');
   cargarClaves();
  }).catch(() => alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
+}
+/* Control Escolar borra la contraseña guardada de la cuenta elegida (la olvidó) y después genera una nueva */
+function borrarClaveCuenta() {
+ const v = $('#select-cuenta-clave').val() || '';
+ if (!v || v === 'rol:control') return;
+ const nombre = $('#select-cuenta-clave option:selected').text().replace(' ✔', '').replace(' (sin contraseña)', '');
+ if (!confirm('Se borrará la contraseña guardada de: ' + nombre + '.\nNo podrá entrar hasta que generes una nueva aquí mismo. No se borra ningún otro dato. ¿Continuar?')) return;
+ const url = v.startsWith('ori:') ? '/api/sica/claves/orientador/' + encodeURIComponent(v.slice(4)) + '/borrar' : '/api/sica/claves/rol/' + encodeURIComponent(v.slice(4));
+ llamarClaves(url, v.startsWith('ori:') ? 'POST' : 'DELETE').then(d => {
+  if (!d.ok) { alert(d.mensaje || 'No se pudo borrar la contraseña.'); return; }
+  $('#resumen-claves').text('Se borró la contraseña anterior de ' + nombre + '. Escribe abajo la contraseña nueva y pulsa Guardar.');
+  cargarClaves().then(() => $('#clave-nueva').focus());
+ }).catch(() => alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
+}
+/* Pantalla de inicio de sesión: qué hacer si se olvidó la contraseña */
+function mostrarOlvideClave() {
+ const rol = $('#rol-select').val();
+ const msg = {
+  orientador: 'Avisa a Control Escolar e indica tu nombre. Ellos borrarán tu contraseña anterior y generarán una nueva para ti. Mientras tanto no podrás entrar.',
+  director: 'Avisa a Control Escolar. Ellos borrarán la contraseña anterior de la cuenta de Director y generarán una nueva.',
+  subdirector: 'Avisa a Control Escolar. Ellos borrarán la contraseña anterior de la cuenta de Subdirector y generarán una nueva.',
+  control: 'Avisa a quien administra el sistema: debe ejecutar en el servidor <code>php artisan sica:restablecer-claves</code> para asignar una contraseña nueva. No se pierde ningún dato.'
+ }[rol] || 'Avisa a Control Escolar para que genere una contraseña nueva.';
+ $('#aviso-olvide').html('<i class="fa-solid fa-circle-info me-1"></i> <b>¿Olvidaste tu contraseña?</b> ' + msg).toggleClass('d-none', false);
 }
 function quitarClaveOrientador() {
  const v = $('#select-cuenta-clave').val() || '';

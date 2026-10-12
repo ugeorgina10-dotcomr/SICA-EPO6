@@ -69,7 +69,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [ClavesController::class, 'index'])->name('sica.claves');
         Route::post('/rol', [ClavesController::class, 'rol'])->name('sica.claves.rol');
         Route::post('/orientador', [ClavesController::class, 'orientador'])->name('sica.claves.orientador');
-        Route::delete('/todas', [ClavesController::class, 'borrarTodas'])->middleware('throttle:3,1,borrar-claves')->name('sica.claves.borrar');
+        Route::delete('/rol/{rol}', [ClavesController::class, 'borrarRol'])->name('sica.claves.borrar.rol');
+        Route::post('/orientador/{orientador}/borrar', [ClavesController::class, 'borrarOrientador'])->name('sica.claves.borrar.orientador');
         Route::delete('/orientador/{orientador}', [ClavesController::class, 'quitarOrientador'])->name('sica.claves.quitar');
     });
 });

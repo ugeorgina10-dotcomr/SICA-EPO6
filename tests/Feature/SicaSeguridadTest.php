@@ -126,7 +126,7 @@ class SicaClavesTest extends TestCase
         $c = $this->como('control');
         $c->postJson('/api/sica/claves/orientador', ['orientador_id' => $ana->id, 'password' => 'ClaveDeAna2026', 'password_confirmation' => 'ClaveDeAna2026'])->assertOk();
 
-        $lista = $c->getJson('/api/sica/claves')->assertOk()->assertJsonPath('orientadores.0.propia', true)->getContent();
+        $lista = $c->getJson('/api/sica/claves')->assertOk()->assertJsonPath('orientadores.0.estado', 'propia')->getContent();
         $this->assertStringNotContainsString('$2y$', $lista);
         $this->assertStringNotContainsString('ClaveDeAna2026', $lista);
         $this->assertStringNotContainsString('$2y$', $c->getJson('/api/sica/estado')->getContent());
@@ -145,84 +145,122 @@ class SicaClavesTest extends TestCase
         $this->assertTrue(Hash::check('prepa06', User::where('rol', 'director')->value('password')));
     }
 
-    public function test_borrar_todas_requiere_confirmacion_y_clave_actual(): void
+    public function test_control_borra_la_clave_de_un_rol_y_ese_rol_no_entra_hasta_tener_una_nueva(): void
     {
         $c = $this->como('control');
-        $c->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'borrar', 'password_actual' => 'prepa06'])->assertStatus(422);
-        $c->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'mala'])->assertStatus(422);
-        $this->assertSame(0, User::where('password', '')->count());
+        $c->deleteJson('/api/sica/claves/rol/director')->assertOk();
+
+        $this->assertSame('', DB::table('users')->where('rol', 'director')->value('password'));   // no queda ni un hash
+        $r = $this->postJson('/auth/login', ['email' => 'director@epo6.edu.mx', 'password' => 'prepa06'])->assertStatus(422);
+        $this->assertStringContainsString('Pide a Control Escolar', $r->json('mensaje'));
+        $this->postJson('/auth/login', ['email' => 'director@epo6.edu.mx', 'password' => ''])->assertStatus(422);
+
+        // Control genera una nueva y vuelve a entrar
+        $c->postJson('/api/sica/claves/rol', ['rol' => 'director', 'password' => 'DirectorNueva26', 'password_confirmation' => 'DirectorNueva26'])->assertOk();
+        $this->postJson('/auth/login', ['email' => 'director@epo6.edu.mx', 'password' => 'DirectorNueva26'])->assertOk();
     }
 
-    public function test_solo_control_puede_borrar_todas(): void
+    public function test_no_se_puede_borrar_la_clave_de_control_ni_de_un_rol_inventado(): void
     {
-        foreach (['director', 'subdirector', 'orientador'] as $rol) {
-            $this->como($rol)->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'prepa06'])->assertStatus(403);
-        }
-        $this->assertSame(0, User::where('password', '')->count());
+        $c = $this->como('control');
+        $c->deleteJson('/api/sica/claves/rol/control')->assertStatus(422);
+        $c->deleteJson('/api/sica/claves/rol/admin')->assertStatus(422);
+        $this->assertTrue(Hash::check('prepa06', User::where('rol', 'control')->value('password')));
     }
 
-    public function test_borrar_todas_no_deja_nada_guardado_y_nadie_entra(): void
+    public function test_solo_control_puede_borrar_claves(): void
+    {
+        $ana = Orientador::create(['nombre' => 'Ana']);
+        foreach (['director', 'subdirector', 'orientador'] as $rol) {
+            $this->como($rol)->deleteJson('/api/sica/claves/rol/director')->assertStatus(403);
+            $this->como($rol)->postJson("/api/sica/claves/orientador/{$ana->id}/borrar")->assertStatus(403);
+        }
+        $this->assertSame(0, DB::table('users')->where('password', '')->count());
+        $this->assertNull(Orientador::find($ana->id)->password);
+    }
+
+    public function test_borrar_la_clave_de_un_orientador_no_lo_deja_entrar_ni_con_la_general(): void
+    {
+        $ana = Orientador::create(['nombre' => 'Ana']);
+        Orientador::create(['nombre' => 'Luis']);
+        $c = $this->como('control');
+        $c->postJson('/api/sica/claves/orientador', ['orientador_id' => $ana->id, 'password' => 'ClaveDeAna2026', 'password_confirmation' => 'ClaveDeAna2026'])->assertOk();
+
+        $c->postJson("/api/sica/claves/orientador/{$ana->id}/borrar")->assertOk();
+        $this->assertSame('', DB::table('orientadores')->where('id', $ana->id)->value('password'));
+
+        $correo = 'orientador1@epo6.edu.mx';
+        $this->postJson('/auth/login', ['email' => $correo, 'password' => 'ClaveDeAna2026', 'orientador' => 'Ana'])->assertStatus(422);
+        $this->postJson('/auth/login', ['email' => $correo, 'password' => 'prepa06', 'orientador' => 'Ana'])->assertStatus(422);
+        // Luis no se ve afectado
+        $this->postJson('/auth/login', ['email' => $correo, 'password' => 'prepa06', 'orientador' => 'Luis'])->assertOk();
+
+        // Control le genera una nueva y entra (el login de Luis cambió la sesión, así que Control vuelve a entrar)
+        $c = $this->como('control');
+        $c->postJson('/api/sica/claves/orientador', ['orientador_id' => $ana->id, 'password' => 'AnaNueva2026x', 'password_confirmation' => 'AnaNueva2026x'])->assertOk();
+        $this->postJson('/auth/login', ['email' => $correo, 'password' => 'AnaNueva2026x', 'orientador' => 'Ana'])->assertOk();
+    }
+
+    public function test_si_se_borra_la_general_los_orientadores_con_clave_propia_siguen_entrando(): void
     {
         $ana = Orientador::create(['nombre' => 'Ana']);
         $c = $this->como('control');
         $c->postJson('/api/sica/claves/orientador', ['orientador_id' => $ana->id, 'password' => 'ClaveDeAna2026', 'password_confirmation' => 'ClaveDeAna2026'])->assertOk();
-        DB::table('users')->where('rol', 'director')->update(['remember_token' => 'abc']);
-        DB::table('password_reset_tokens')->insert(['email' => 'director@epo6.edu.mx', 'token' => 'x', 'created_at' => now()]);
+        $c->deleteJson('/api/sica/claves/rol/orientador')->assertOk();
 
-        $c->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'prepa06'])->assertOk();
+        $this->postJson('/auth/login', ['email' => 'orientador1@epo6.edu.mx', 'password' => 'ClaveDeAna2026', 'orientador' => 'Ana'])->assertOk();
+    }
 
-        $this->assertSame(4, User::count());                                        // las cuentas existen, sin contraseña
-        $this->assertSame(0, DB::table('users')->where('password', '!=', '')->count());
-        $this->assertSame(0, DB::table('users')->whereNotNull('remember_token')->count());
-        $this->assertSame(0, DB::table('orientadores')->whereNotNull('password')->count());
-        $this->assertSame(0, DB::table('password_reset_tokens')->count());
-        $this->assertSame(0, DB::table('sessions')->count());
+    public function test_el_estado_de_las_claves_no_incluye_hashes_y_marca_las_borradas(): void
+    {
+        $ana = Orientador::create(['nombre' => 'Ana']);
+        $c = $this->como('control');
+        $c->deleteJson('/api/sica/claves/rol/subdirector')->assertOk();
+        $c->postJson("/api/sica/claves/orientador/{$ana->id}/borrar")->assertOk();
 
-        foreach (['control.escolar', 'director', 'subdirector'] as $u) {
-            $this->postJson('/auth/login', ['email' => "$u@epo6.edu.mx", 'password' => 'prepa06'])->assertStatus(422);
-            $this->postJson('/auth/login', ['email' => "$u@epo6.edu.mx", 'password' => ''])->assertStatus(422);
-        }
-        $this->postJson('/auth/login', ['email' => 'orientador1@epo6.edu.mx', 'password' => 'prepa06', 'orientador' => 'Ana'])->assertStatus(422);
-        $this->postJson('/auth/login', ['email' => 'orientador1@epo6.edu.mx', 'password' => 'ClaveDeAna2026', 'orientador' => 'Ana'])->assertStatus(422);
+        $r = $c->getJson('/api/sica/claves')->assertOk();
+        $this->assertStringNotContainsString('$2y$', $r->getContent());
+        $this->assertSame('borrada', $r->json('orientadores.0.estado'));
+        $this->assertSame(['subdirector'], collect($r->json('roles'))->where('borrada', true)->pluck('rol')->values()->all());
+    }
+
+    public function test_borrar_una_clave_no_toca_ningun_dato(): void
+    {
+        $g = \App\Models\Grupo::create(['grado' => 1, 'nombre' => '1° 1', 'turno' => 'Matutino']);
+        \App\Models\Alumno::create(['matricula' => 'AAAA000101HMCXXX01', 'nombre' => 'Alumno Uno', 'grupo_id' => $g->id]);
+        $ana = Orientador::create(['nombre' => 'Ana']);
+        \App\Models\Permiso::updateOrCreate(['rol' => 'director'], ['tipo' => 'editar']);
+        $cuentas = fn () => [User::count(), DB::table('grupos')->count(), DB::table('alumnos')->count(), DB::table('orientadores')->count(), DB::table('permisos')->count(),
+            User::orderBy('id')->pluck('email', 'rol')->all(), DB::table('permisos')->where('rol', 'director')->value('tipo')];
+        $antes = $cuentas();
+
+        $c = $this->como('control');
+        $c->deleteJson('/api/sica/claves/rol/director')->assertOk();
+        $c->postJson("/api/sica/claves/orientador/{$ana->id}/borrar")->assertOk();
+
+        $this->assertSame($antes, $cuentas());
     }
 
     public function test_el_despliegue_no_restaura_prepa06_en_cuentas_borradas(): void
     {
-        $this->como('control')->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'prepa06'])->assertOk();
+        $this->como('control')->deleteJson('/api/sica/claves/rol/director')->assertOk();
 
         $this->artisan('sica:crear-usuarios')->assertSuccessful();   // se ejecuta en cada despliegue de Railway
 
-        $this->assertSame(0, DB::table('users')->where('password', '!=', '')->count());
+        $this->assertSame('', DB::table('users')->where('rol', 'director')->value('password'));
+        $this->assertTrue(Hash::check('prepa06', User::where('rol', 'subdirector')->value('password')));   // las demás no cambian
     }
 
-    public function test_restablecer_claves_vuelve_a_dar_acceso_con_hash(): void
+    public function test_restablecer_claves_da_acceso_con_hash_cuando_control_olvido_la_suya(): void
     {
-        $this->como('control')->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'prepa06'])->assertOk();
+        DB::table('users')->where('rol', 'control')->update(['password' => '']);
 
         $this->artisan('sica:restablecer-claves', ['--clave' => 'Restablecida2026'])->assertSuccessful();
 
         foreach (User::all() as $u) {
             $this->assertStringStartsWith('$2y$', $u->getAuthPassword());
         }
-        $this->postJson('/auth/login', ['email' => 'director@epo6.edu.mx', 'password' => 'Restablecida2026'])->assertOk();
-
+        $this->postJson('/auth/login', ['email' => 'control.escolar@epo6.edu.mx', 'password' => 'Restablecida2026'])->assertOk();
         $this->artisan('sica:restablecer-claves', ['--clave' => 'debil'])->assertFailed();
-    }
-
-    public function test_borrar_todas_no_toca_ningun_dato_de_los_roles(): void
-    {
-        $g = \App\Models\Grupo::create(['grado' => 1, 'nombre' => '1° 1', 'turno' => 'Matutino']);
-        \App\Models\Alumno::create(['matricula' => 'AAAA000101HMCXXX01', 'nombre' => 'Alumno Uno', 'grupo_id' => $g->id]);
-        Orientador::create(['nombre' => 'Ana']);
-        \App\Models\Permiso::updateOrCreate(['rol' => 'director'], ['tipo' => 'editar']);
-        $antes = [User::count(), DB::table('grupos')->count(), DB::table('alumnos')->count(), DB::table('orientadores')->count(), DB::table('permisos')->count()];
-        $correos = User::orderBy('id')->pluck('email', 'rol')->all();
-
-        $this->como('control')->deleteJson('/api/sica/claves/todas', ['confirmacion' => 'BORRAR TODO', 'password_actual' => 'prepa06'])->assertOk();
-
-        $despues = [User::count(), DB::table('grupos')->count(), DB::table('alumnos')->count(), DB::table('orientadores')->count(), DB::table('permisos')->count()];
-        $this->assertSame($antes, $despues);
-        $this->assertSame($correos, User::orderBy('id')->pluck('email', 'rol')->all());   // mismos roles y correos
-        $this->assertSame('editar', DB::table('permisos')->where('rol', 'director')->value('tipo'));
     }
 }

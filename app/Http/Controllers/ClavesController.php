@@ -6,7 +6,6 @@ use App\Models\Orientador;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -53,13 +52,23 @@ class ClavesController extends Controller
         ];
     }
 
-    /** Lista de orientadores y si ya tienen clave propia (solo un sí/no, nunca la clave ni su hash). */
+    /**
+     * Estado de las contraseñas (solo "con contraseña", "general" o "borrada": nunca la clave ni su hash).
+     * Orientador: propia = tiene la suya; general = usa la del rol Orientador; borrada = sin acceso hasta que le generen una.
+     */
     public function index(): JsonResponse
     {
         return response()->json([
             'ok' => true,
+            'roles' => User::whereIn('rol', ['director', 'subdirector', 'orientador'])->get()
+                ->map(fn ($u) => ['rol' => $u->rol, 'borrada' => (string) $u->getAuthPassword() === ''])
+                ->values(),
             'orientadores' => Orientador::orderBy('nombre')->get()
-                ->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre, 'propia' => !empty($o->password)])
+                ->map(fn ($o) => [
+                    'id'     => (string) $o->id,
+                    'nombre' => $o->nombre,
+                    'estado' => $o->password === null ? 'general' : ($o->password === '' ? 'borrada' : 'propia'),
+                ])
                 ->values(),
         ]);
     }
@@ -129,33 +138,35 @@ class ClavesController extends Controller
     }
 
     /**
-     * Borra TODAS las contraseñas: las de los roles, las propias de cada orientador, los tokens de "recordarme",
-     * los tokens de restablecimiento y las sesiones abiertas. No queda ni siquiera un hash guardado.
-     * Después nadie puede iniciar sesión hasta ejecutar en el servidor:  php artisan sica:restablecer-claves
+     * Control Escolar borra la contraseña guardada de una cuenta (cuando alguien la olvidó).
+     * La columna queda vacía: nadie entra con esa cuenta hasta que Control Escolar genere una nueva.
+     * Solo se borra la contraseña (y las sesiones de esa cuenta); no se toca ningún otro dato.
+     * La de Control Escolar no se puede borrar desde aquí (se quedaría sin acceso): usa  php artisan sica:restablecer-claves
      */
-    public function borrarTodas(Request $request): JsonResponse
+    public function borrarRol(Request $request, string $rol): JsonResponse
     {
-        $d = $request->validate([
-            'confirmacion'    => ['required', 'in:BORRAR TODO'],
-            'password_actual' => ['required', 'string', 'max:200'],
-        ], ['confirmacion.in' => 'Escribe exactamente BORRAR TODO para confirmar.']);
-
-        if (!Hash::check($d['password_actual'], $request->user()->getAuthPassword())) {
-            return response()->json(['ok' => false, 'mensaje' => 'Tu contraseña actual no es correcta.'], 422);
+        if (!in_array($rol, ['director', 'subdirector', 'orientador'], true)) {
+            return response()->json(['ok' => false, 'mensaje' => 'Esa cuenta no se puede borrar desde aquí.'], 422);
         }
 
-        DB::transaction(function () {
-            DB::table('users')->update(['password' => '', 'remember_token' => null]);
-            DB::table('orientadores')->update(['password' => null]);
-            DB::table('password_reset_tokens')->delete();
-            DB::table('sessions')->delete();
-        });
+        $usuario = User::where('rol', $rol)->first();
 
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        if (!$usuario) {
+            return response()->json(['ok' => false, 'mensaje' => 'No existe la cuenta de ese rol.'], 404);
+        }
 
-        return response()->json(['ok' => true, 'csrf' => csrf_token()]);
+        DB::table('users')->where('id', $usuario->id)->update(['password' => '', 'remember_token' => null]);
+        DB::table('sessions')->where('user_id', $usuario->id)->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Borra la contraseña de un orientador: no podrá entrar (ni con la general) hasta que le generen una nueva. */
+    public function borrarOrientador(Orientador $orientador): JsonResponse
+    {
+        DB::table('orientadores')->where('id', $orientador->id)->update(['password' => '']);
+
+        return response()->json(['ok' => true]);
     }
 
     /** ¿La contraseña nueva ya es la de otra cuenta de rol? (se compara contra sus hashes) */

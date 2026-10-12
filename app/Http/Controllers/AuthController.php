@@ -37,7 +37,14 @@ class AuthController extends Controller
             ], 429);
         }
 
-        $usuario = $this->usuarioValido($credenciales['email'], $credenciales['password'], $nombreOrientador);
+        [$usuario, $borrada] = $this->usuarioValido($credenciales['email'], $credenciales['password'], $nombreOrientador);
+
+        if ($borrada) {
+            return response()->json([
+                'ok'      => false,
+                'mensaje' => 'Tu contraseña fue borrada. Pide a Control Escolar que te genere una nueva.',
+            ], 422);
+        }
 
         if (!$usuario) {
             RateLimiter::hit($clave, 60);
@@ -76,33 +83,40 @@ class AuthController extends Controller
     }
 
     /**
-     * Devuelve la cuenta si la contraseña es correcta; si no, null.
+     * Devuelve [cuenta o null, contraseña borrada?].
      * Rol Orientador: se pide el nombre y se compara con la clave PROPIA de ese orientador;
      * si Control Escolar no le puso una, vale la contraseña general del rol.
+     * "Borrada" = Control Escolar la eliminó y todavía no genera una nueva (columna vacía).
      */
-    private function usuarioValido(string $email, string $password, ?string $nombreOrientador): ?User
+    private function usuarioValido(string $email, string $password, ?string $nombreOrientador): array
     {
         $usuario = User::where('email', $email)->first();
 
         if (!$usuario) {
             Hash::make($password);   // gasta el mismo tiempo para no revelar qué correos existen
 
-            return null;
+            return [null, false];
         }
 
-        $hash = $usuario->getAuthPassword();
+        $hash = (string) $usuario->getAuthPassword();
 
         if ($usuario->rol === 'orientador') {
             $orientador = $nombreOrientador ? Orientador::where('nombre', $nombreOrientador)->first() : null;
 
             if (!$orientador) {
-                return null;
+                return [null, false];
             }
 
-            $hash = $orientador->password ?: $hash;
+            if ($orientador->password !== null) {
+                $hash = (string) $orientador->password;   // propia (o '' si se la borraron)
+            }
         }
 
-        return Hash::check($password, $hash) ? $usuario : null;
+        if ($hash === '') {
+            return [null, true];
+        }
+
+        return [Hash::check($password, $hash) ? $usuario : null, false];
     }
 
     private function datosUsuario(Request $request): array
