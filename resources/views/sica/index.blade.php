@@ -1414,20 +1414,38 @@ function olvideContrasena() {
  if (rol === 'orientador' && !$('#select-orientador-login').val()) { alert('Primero selecciona tu nombre de la lista.'); return; }
  abrirModalCuenta('confirmar');
 }
-function confirmarOlvido() {
+function confirmarOlvido(reintento) {
  const rol = $('#rol-select').val();
  const o = rol === 'orientador' ? db.orientadores.find(x => x.id === $('#select-orientador-login').val()) : null;
+ // El correo se toma del ROL elegido (no del campo de texto): en computadora el navegador puede dejar ese campo vacío,
+ // con otro rol o autocompletado con un correo guardado, y entonces el servidor rechazaba la petición sin avisar.
+ const email = correosRoles[rol] || $('#input-correo').val();
+ $('#input-correo').val(email);
+ const btn = $('#modal-cuenta-botones button').prop('disabled', true);
  fetch('/auth/olvide', {
   method: 'POST',
-  headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
-  body: JSON.stringify({email: $('#input-correo').val(), orientador: o ? o.nombre : null})
+  credentials: 'same-origin',
+  headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+  body: JSON.stringify({email: email, orientador: o ? o.nombre : null})
  }).then(r => r.json().catch(() => ({})).then(d => ({status: r.status, ...d})))
  .then(d => {
+  // 419: la página llevaba mucho tiempo abierta y su token venció (pasa en computadoras) -> se pide uno nuevo y se reintenta UNA vez
+  if (d.status === 419 && !reintento) return refrescarCsrf().then(() => confirmarOlvido(true));
+  btn.prop('disabled', false);
   $('#input-clave').val('');
-  if (d.ok === false || !d.mensaje) { abrirModalCuenta('info', d.mensaje || (d.status === 429 ? 'Demasiados intentos. Espera un minuto.' : 'No se pudo completar. Inténtalo de nuevo.')); return; }
+  if (d.ok === false || !d.mensaje) {
+   let msg = d.mensaje;
+   if (!msg) {
+    if (d.status === 429) msg = 'Demasiados intentos. Espera un minuto.';
+    else if (d.status === 419) msg = 'La página estuvo abierta demasiado tiempo. Recárgala (F5) e inténtalo de nuevo.';
+    else if (d.status === 422) msg = 'No se pudo identificar tu cuenta. Recarga la página (F5), elige tu rol y vuelve a intentarlo.';
+    else msg = 'No se pudo completar (error ' + d.status + '). Inténtalo de nuevo.';
+   }
+   abrirModalCuenta('info', msg); return;
+  }
   abrirModalCuenta(d.bloqueada ? 'bloqueada' : 'info', d.mensaje);
  })
- .catch(() => abrirModalCuenta('info', 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
+ .catch(() => { btn.prop('disabled', false); abrirModalCuenta('info', 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'); });
 }
 /* ============ ESCÁNER QR (cámara) ============ */
 function iniciarScanner(el, modoFn) {
@@ -2145,6 +2163,8 @@ function restaurarSesion(S) {
  if (!rolActivo) mostrarSeccion('vista-sistema');
  });
 }
+// Computadoras: al volver con "atrás" o recargar, el navegador restaura el rol elegido SIN avisar a la página -> se vuelve a sincronizar el correo
+window.addEventListener('pageshow', () => { if (!rolActivo) actualizarCredenciales(); });
 $(function () {
  if (Array.isArray(window.SICA_ORIENTADORES)) db.orientadores = window.SICA_ORIENTADORES;   // ya vienen en la página
  actualizarCredenciales();
