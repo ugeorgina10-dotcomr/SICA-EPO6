@@ -1439,6 +1439,10 @@ function confirmarOlvido(reintento) {
     if (d.status === 429) msg = 'Demasiados intentos. Espera un minuto.';
     else if (d.status === 419) msg = 'La página estuvo abierta demasiado tiempo. Recárgala (F5) e inténtalo de nuevo.';
     else if (d.status === 422) msg = 'No se pudo identificar tu cuenta. Recarga la página (F5), elige tu rol y vuelve a intentarlo.';
+    else if (d.status >= 500) {
+     // Error interno del servidor. Con APP_DEBUG=true (modo local) Laravel manda la causa real en d.message; en producción solo dice "Server Error".
+     msg = 'Error del servidor (' + d.status + ')' + (d.message && d.message !== 'Server Error' ? ': ' + String(d.message).slice(0, 300) : '. Revisa el registro del servidor (storage/logs/laravel.log).');
+    }
     else msg = 'No se pudo completar (error ' + d.status + '). Inténtalo de nuevo.';
    }
    abrirModalCuenta('info', msg); return;
