@@ -13,7 +13,9 @@ use Illuminate\Validation\Rule;
 /**
  * Contraseñas administradas por Control Escolar (todas las rutas pasan por el guardia sica:control).
  *  - clave de cada rol (director, subdirector, orientador general y la propia de Control Escolar)
- *  - clave propia de cada orientador (si no tiene, entra con la general del rol Orientador)
+ *  - clave personal de cada orientador (si no tiene, entra con la general del rol Orientador)
+ * Control Escolar es quien genera y entrega las contraseñas; una cuenta bloqueada por "olvidé mi contraseña"
+ * se desbloquea al generarle una nueva (o al desbloquearla sin cambiarla).
  * Las claves se guardan siempre con hash (bcrypt); nunca se devuelven ni se guardan en texto plano.
  */
 class ClavesController extends Controller
@@ -53,21 +55,27 @@ class ClavesController extends Controller
     }
 
     /**
-     * Estado de las contraseñas (solo "con contraseña", "general" o "borrada": nunca la clave ni su hash).
-     * Orientador: propia = tiene la suya; general = usa la del rol Orientador; borrada = sin acceso hasta que le generen una.
+     * Estado de las contraseñas (nunca la clave ni su hash).
+     * Roles: borrada = sin contraseña; bloqueada = la persona marcó "olvidé mi contraseña".
+     * Orientadores: estado propia (personal) | general (usa la del rol) | borrada; bloqueada igual que en los roles.
      */
     public function index(): JsonResponse
     {
         return response()->json([
             'ok' => true,
             'roles' => User::whereIn('rol', ['director', 'subdirector', 'orientador'])->get()
-                ->map(fn ($u) => ['rol' => $u->rol, 'borrada' => (string) $u->getAuthPassword() === ''])
+                ->map(fn ($u) => [
+                    'rol'       => $u->rol,
+                    'borrada'   => (string) $u->getAuthPassword() === '',
+                    'bloqueada' => $u->olvido_at !== null,
+                ])
                 ->values(),
             'orientadores' => Orientador::orderBy('nombre')->get()
                 ->map(fn ($o) => [
-                    'id'     => (string) $o->id,
-                    'nombre' => $o->nombre,
-                    'estado' => $o->password === null ? 'general' : ($o->password === '' ? 'borrada' : 'propia'),
+                    'id'        => (string) $o->id,
+                    'nombre'    => $o->nombre,
+                    'estado'    => $o->password === null ? 'general' : ($o->password === '' ? 'borrada' : 'propia'),
+                    'bloqueada' => $o->olvido_at !== null,
                 ])
                 ->values(),
         ]);
@@ -98,6 +106,7 @@ class ClavesController extends Controller
         }
 
         $usuario->password = $d['password'];   // el modelo la guarda con hash
+        $usuario->olvido_at = null;            // con contraseña nueva, la cuenta vuelve a tener acceso
         $usuario->save();
 
         // Cierra las sesiones abiertas de esa cuenta (en Control Escolar, menos la actual)
@@ -123,15 +132,17 @@ class ClavesController extends Controller
 
         $o = Orientador::findOrFail($d['orientador_id']);
         $o->password = $d['password'];
+        $o->olvido_at = null;   // con contraseña nueva, vuelve a tener acceso
         $o->save();
 
         return response()->json(['ok' => true]);
     }
 
-    /** Quita la clave propia: el orientador vuelve a entrar con la contraseña general del rol Orientador. */
+    /** Quita la clave personal: el orientador vuelve a entrar con la contraseña general del rol Orientador (y se desbloquea). */
     public function quitarOrientador(Orientador $orientador): JsonResponse
     {
         $orientador->password = null;
+        $orientador->olvido_at = null;
         $orientador->save();
 
         return response()->json(['ok' => true]);
@@ -165,6 +176,29 @@ class ClavesController extends Controller
     public function borrarOrientador(Orientador $orientador): JsonResponse
     {
         DB::table('orientadores')->where('id', $orientador->id)->update(['password' => '']);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Quita el bloqueo de "olvidé mi contraseña" SIN cambiar la contraseña
+     * (por ejemplo, si alguien marcó el bloqueo por error o por broma). Si la contraseña está borrada, sigue sin entrar
+     * hasta que se genere una nueva.
+     */
+    public function desbloquearRol(string $rol): JsonResponse
+    {
+        if (!in_array($rol, ['director', 'subdirector', 'orientador'], true)) {
+            return response()->json(['ok' => false, 'mensaje' => 'Esa cuenta no se bloquea.'], 422);
+        }
+
+        DB::table('users')->where('rol', $rol)->update(['olvido_at' => null]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function desbloquearOrientador(Orientador $orientador): JsonResponse
+    {
+        DB::table('orientadores')->where('id', $orientador->id)->update(['olvido_at' => null]);
 
         return response()->json(['ok' => true]);
     }

@@ -80,6 +80,21 @@ body.modo-movil #vista-sistema{padding:.75rem !important}
 body.modo-movil .camera-box-ref{max-width:100%;min-height:260px}
 body.modo-movil #res-cam-orient{font-size:1.1rem;min-height:40px}
 body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;padding:.9rem}
+/* ---- Contraseñas: botones de cuenta y ventana central ---- */
+.btn-cuenta{border:1.5px solid #d9c3c8;background:#fff;color:#5a1020;border-radius:999px;padding:.4rem .9rem;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:.45rem;cursor:pointer;transition:all .15s}
+.btn-cuenta:hover{border-color:#800020;background:#fdf3f5}
+.btn-cuenta.activa{background:#800020;border-color:#800020;color:#fff}
+.btn-cuenta.alerta:not(.activa){border-color:#dc3545}
+.btn-cuenta .etq{font-size:.68rem;font-weight:600;border-radius:999px;padding:.1rem .5rem;background:#e9ecef;color:#495057}
+.btn-cuenta .etq.mal{background:#dc3545;color:#fff}
+.btn-cuenta .etq.bien{background:#d1e7dd;color:#0f5132}
+.btn-cuenta.activa .etq{background:rgba(255,255,255,.22);color:#fff}
+.modal-cuenta{position:fixed;inset:0;z-index:2000;background:rgba(30,0,8,.62);display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-cuenta.d-none{display:none!important}
+.modal-cuenta-caja{background:#fff;border-radius:1.1rem;max-width:440px;width:100%;padding:2rem 1.6rem 1.6rem;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);border-top:6px solid #800020}
+.modal-cuenta-icono{width:64px;height:64px;border-radius:50%;background:#fdf3f5;color:#800020;font-size:1.7rem;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
+.modal-cuenta-caja h5{font-weight:700;color:#800020}
+.modal-cuenta-caja p{color:#444;font-size:.95rem}
 </style>
 </head>
 <body id="cuerpo-contenedor" class="bg-login">
@@ -144,8 +159,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </button>
  </div>
  </div>
- <div class="text-end mb-3" style="margin-top:-1rem"><a href="#" class="small text-muted text-decoration-underline" onclick="mostrarOlvideClave(); return false;">¿Olvidaste tu contraseña?</a></div>
- <div id="aviso-olvide" class="small p-3 rounded-3 mb-3 d-none" style="background:#fdf8f8;border:1px solid #eee;color:#444"></div>
+ <div class="text-end mb-3" style="margin-top:-1rem"><a href="#" class="small text-muted text-decoration-underline" onclick="olvideContrasena(); return false;">¿Olvidaste tu contraseña?</a></div>
  <button type="button" onclick="intentarEntrar()" class="btn btn-vinotinto w-100 py-3 rounded-3 shadow fs-5">Ingresar al Sistema</button>
 </form>
 </div>
@@ -485,63 +499,82 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 
 <div id="bloque-claves" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-key me-2"></i> Contraseñas</h6>
- <p class="text-muted small mb-3">Cambia la contraseña de cada rol o asigna una contraseña propia a cada orientador para que no compartan la misma. Un orientador sin contraseña propia entra con la general del rol Orientador.</p>
- <div class="row g-3 align-items-end">
- <div class="col-md-4"><label class="form-label small">Cuenta</label>
- <select id="select-cuenta-clave" class="form-select form-select-sm" onchange="cambiarCuentaClave()">
- <optgroup label="Roles">
- <option value="rol:director">Director</option>
- <option value="rol:subdirector">Subdirector</option>
- <option value="rol:orientador">Orientador (contraseña general)</option>
- <option value="rol:control">Control Escolar (mi cuenta)</option>
- </optgroup>
- <optgroup label="Orientadores (contraseña propia)" id="grupo-orientadores-clave"></optgroup>
- </select>
+ <p class="text-muted small mb-3">Control Escolar genera y entrega las contraseñas. Elige un rol; si es orientador con contraseña propia, elige su nombre. Después borra su contraseña, genera una nueva o quita el bloqueo.</p>
+ <div class="fw-semibold small mb-2" style="color:#800020">Roles</div>
+ <div id="botones-roles-clave" class="d-flex flex-wrap gap-2 mb-2"></div>
+ <div id="zona-chips-ori" class="mt-2 d-none">
+  <div class="fw-semibold small mb-2" style="color:#800020">Orientadores · contraseña personal</div>
+  <div id="chips-orientadores" class="d-flex flex-wrap gap-2"></div>
  </div>
- <div class="col-md-8 d-none" id="campo-clave-actual"><label class="form-label small">Contraseña actual</label>
- <input type="password" id="clave-actual" class="form-control form-control-sm" autocomplete="current-password">
+ <div id="resumen-bloqueadas" class="mt-3 small"></div>
+
+ <div id="panel-cuenta-clave" class="mt-3 p-3 rounded-3 d-none" style="background:#fdf8f8;border:1px solid #eee">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+   <div><span class="fw-bold" id="panel-titulo"></span> <span id="panel-estado" class="ms-1"></span></div>
+   <div class="d-flex flex-wrap gap-2">
+    <button type="button" id="btn-borrar-clave" onclick="borrarClaveCuenta()" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash-can me-1"></i> Borrar contraseña</button>
+    <button type="button" id="btn-desbloquear-clave" onclick="desbloquearCuenta()" class="btn btn-outline-secondary btn-sm d-none"><i class="fa-solid fa-lock-open me-1"></i> Desbloquear sin cambiar</button>
+    <button type="button" id="btn-quitar-clave" onclick="quitarClaveOrientador()" class="btn btn-outline-secondary btn-sm d-none" title="El orientador vuelve a entrar con la contraseña general">Quitar propia</button>
+   </div>
+  </div>
+  <div class="small text-muted mb-3" id="panel-ayuda"></div>
+  <div class="row g-3 align-items-end">
+   <div class="col-md-12 d-none" id="campo-clave-actual"><label class="form-label small">Contraseña actual</label>
+    <input type="password" id="clave-actual" class="form-control form-control-sm" autocomplete="current-password">
+   </div>
+   <div class="col-md-4"><label class="form-label small">Contraseña nueva</label>
+    <input type="password" id="clave-nueva" class="form-control form-control-sm" autocomplete="new-password" maxlength="72" oninput="revisarRequisitosClave()">
+   </div>
+   <div class="col-md-4"><label class="form-label small">Repite la contraseña nueva</label>
+    <input type="password" id="clave-confirmar" class="form-control form-control-sm" autocomplete="new-password" maxlength="72" oninput="revisarRequisitosClave()">
+   </div>
+   <div class="col-md-4 d-flex gap-2">
+    <button type="button" onclick="generarClave()" class="btn btn-outline-dark btn-sm py-2 text-nowrap" title="Crea una contraseña segura al azar"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar</button>
+    <button type="button" onclick="guardarClave()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+   </div>
+  </div>
+  <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" id="ver-claves" onchange="verClavesNuevas()"><label class="form-check-label" for="ver-claves">Mostrar lo que escribo</label></div>
+  <div class="mt-3 p-3 rounded-3 small bg-white" style="border:1px solid #eee">
+   <div class="fw-semibold mb-1" style="color:#800020"><i class="fa-solid fa-circle-info me-1"></i> Cómo hacer una contraseña segura</div>
+   <ul class="list-unstyled mb-2" id="requisitos-clave">
+    <li data-req="largo"><span class="marca me-2">○</span>Mínimo 8 caracteres (máximo 72).</li>
+    <li data-req="mayus"><span class="marca me-2">○</span>Una letra mayúscula y una minúscula.</li>
+    <li data-req="numero"><span class="marca me-2">○</span>Al menos un número.</li>
+    <li data-req="espacios"><span class="marca me-2">○</span>Sin espacios.</li>
+    <li data-req="especial"><span class="marca me-2">○</span>Solo letras y números: sin caracteres especiales (@ # $ % & * . - _ ! ?) ni acentos.</li>
+    <li data-req="escuela"><span class="marca me-2">○</span>Sin el nombre de la escuela ni la clave inicial (prepa06, epo6).</li>
+    <li data-req="igual"><span class="marca me-2">○</span>Las dos casillas deben coincidir.</li>
+   </ul>
+   <div class="text-muted">El botón <b>Generar</b> crea una que ya cumple todo. Evita nombres, CURP y fechas de nacimiento, y no repitas la misma contraseña en otro rol.</div>
+  </div>
+  <div id="entrega-clave" class="mt-3 p-3 rounded-3 d-none" style="background:#eef7f0;border:1px solid #b7dcc0">
+   <div class="fw-semibold mb-1" style="color:#0f5132"><i class="fa-solid fa-hand-holding me-1"></i> Contraseña lista para entregar</div>
+   <div class="small mb-2">Para: <b id="entrega-para"></b> · Correo: <span id="entrega-correo"></span></div>
+   <div class="d-flex flex-wrap align-items-center gap-2">
+    <code id="entrega-clave-texto" class="fs-5 px-3 py-1 bg-white rounded border" style="user-select:all"></code>
+    <button type="button" onclick="copiarEntrega()" class="btn btn-outline-success btn-sm"><i class="fa-regular fa-copy me-1"></i> Copiar</button>
+    <button type="button" onclick="imprimirEntrega()" class="btn btn-outline-success btn-sm"><i class="fa-solid fa-print me-1"></i> Imprimir hoja de entrega</button>
+    <button type="button" onclick="ocultarEntrega()" class="btn btn-success btn-sm">Ya la entregué</button>
+   </div>
+   <div class="small text-muted mt-2">Entrégala en persona. Esta es la única vez que se muestra: el sistema solo guarda su versión cifrada.</div>
+  </div>
  </div>
- <div class="col-md-4"><label class="form-label small">Contraseña nueva (mínimo 8 caracteres)</label>
- <input type="password" id="clave-nueva" class="form-control form-control-sm" autocomplete="new-password" maxlength="72" oninput="revisarRequisitosClave()">
- </div>
- <div class="col-md-4"><label class="form-label small">Repite la contraseña nueva</label>
- <input type="password" id="clave-confirmar" class="form-control form-control-sm" autocomplete="new-password" maxlength="72" oninput="revisarRequisitosClave()">
- </div>
- <div class="col-md-4 d-flex gap-2">
- <button onclick="guardarClave()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
- <button onclick="quitarClaveOrientador()" id="btn-quitar-clave" class="btn btn-outline-secondary btn-sm py-2 d-none text-nowrap" title="El orientador vuelve a entrar con la contraseña general">Quitar propia</button>
- </div>
- </div>
- <div class="mt-3 p-3 rounded-3 small" style="background:#fdf8f8;border:1px solid #eee">
- <div class="fw-semibold mb-1" style="color:#800020"><i class="fa-solid fa-circle-info me-1"></i> Cómo hacer una contraseña segura</div>
- <ul class="list-unstyled mb-2" id="requisitos-clave">
- <li data-req="largo"><span class="marca me-2">○</span>Mínimo 8 caracteres (máximo 72).</li>
- <li data-req="mayus"><span class="marca me-2">○</span>Una letra mayúscula y una minúscula.</li>
- <li data-req="numero"><span class="marca me-2">○</span>Al menos un número.</li>
- <li data-req="espacios"><span class="marca me-2">○</span>Sin espacios.</li>
- <li data-req="especial"><span class="marca me-2">○</span>Solo letras y números: sin caracteres especiales (@ # $ % & * . - _ ! ?) ni acentos.</li>
- <li data-req="escuela"><span class="marca me-2">○</span>Sin el nombre de la escuela ni la clave inicial (prepa06, epo6).</li>
- <li data-req="igual"><span class="marca me-2">○</span>Las dos casillas deben coincidir.</li>
- </ul>
- <div class="text-muted">
- Consejo: junta dos o tres palabras que no tengan relación entre sí y agrega números, por ejemplo <span class="fw-semibold">LunaTrenRoble58</span> (no uses este ejemplo).
- Evita nombres, CURP, fechas de nacimiento y la misma contraseña en otro rol. No la mandes por mensaje: entrégala en persona.
- </div>
- </div>
- <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" id="ver-claves" onchange="verClavesNuevas()"><label class="form-check-label" for="ver-claves">Mostrar lo que escribo</label></div>
- <div id="resumen-claves" class="mt-2 small text-muted"></div>
- <div id="lista-claves-orientadores" class="mt-2 small"></div>
- <div id="zona-borrar-claves" class="mt-3 small d-none">
- <a href="#" class="text-muted text-decoration-underline" onclick="borrarClaveCuenta(); return false;">¿La olvidó? Borrar la contraseña guardada de esta cuenta…</a>
- <div class="text-muted mt-1">Solo se borra la contraseña (nada más): la persona no podrá entrar hasta que generes una nueva aquí mismo.</div>
- </div>
- </div>
+ <div id="resumen-claves" class="mt-3 small text-muted"></div>
+</div>
 </div>
 <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
  <button onclick="regresarPanel()" id="btn-regresar-panel" class="btn btn-vinotinto px-4 rounded-pill fw-semibold shadow-sm d-none"><i class="fa-solid fa-arrow-left me-2"></i> Regresar</button>
  <button onclick="cerrarSesion()" class="btn btn-dark px-4 rounded-pill fw-semibold shadow-sm ms-auto">Cerrar Sesión</button>
 </div>
 </div>
+</div>
+<div id="modal-cuenta" class="modal-cuenta d-none" role="dialog" aria-modal="true" aria-labelledby="modal-cuenta-titulo">
+ <div class="modal-cuenta-caja">
+  <div class="modal-cuenta-icono" id="modal-cuenta-icono"><i class="fa-solid fa-lock"></i></div>
+  <h5 id="modal-cuenta-titulo"></h5>
+  <p id="modal-cuenta-texto"></p>
+  <div id="modal-cuenta-botones" class="d-flex gap-2 justify-content-center flex-wrap"></div>
+ </div>
 </div>
 <div id="canvas-temporal" style="position:absolute;left:-9999px;top:-9999px;"></div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -914,7 +947,6 @@ function poblarSelectOrientadorHorario() {
 /* ============ NAVEGACIÓN / ROLES ============ */
 function actualizarCredenciales() {
  const rol = $('#rol-select').val();
- $('#aviso-olvide').addClass('d-none');
  $('#input-correo').val(correosRoles[rol] || '');
  const esOrientador = rol === 'orientador';
  $('#campo-orientador-login').toggleClass('d-none', !esOrientador);
@@ -960,6 +992,7 @@ function intentarEntrar() {
  .then(d => {
  if (!d.ok) {
  orientadorActivo = null;
+ if (d.bloqueada) { $('#input-clave').val(''); abrirModalCuenta('bloqueada', d.mensaje); return; }
  alert(d.mensaje || 'No se pudo iniciar sesión.');
  return;
  }
@@ -1087,35 +1120,85 @@ function llamarClaves(url, metodo, cuerpo, reintento) {
   });
  });
 }
-const NOMBRES_CUENTA = {director: 'Director', subdirector: 'Subdirector', orientador: 'Orientador (contraseña general)', control: 'Control Escolar'};
-let clavesRoles = [];   // [{rol, borrada}]
+const NOMBRES_CUENTA = {director: 'Director', subdirector: 'Subdirector', orientador: 'Orientador (contraseña general)', control: 'Control Escolar (mi cuenta)'};
+let clavesRoles = [];        // [{rol, borrada, bloqueada}]
+let cuentaSel = '';          // 'rol:director' | 'rol:control' | 'ori:ID' | '' (ninguna)
+let listaOriAbierta = false; // se muestran los nombres de los orientadores
+let claveEntrega = null;     // {para, correo, clave}: solo en memoria, se borra al ocultar la tarjeta
+let temporizadorClaves = null;
+function etiquetaCuenta(borrada, bloqueada) {
+ return bloqueada ? '<span class="etq mal">Bloqueada</span>' : borrada ? '<span class="etq mal">Sin contraseña</span>' : '<span class="etq bien">Activa</span>';
+}
 function cargarClaves() {
  return llamarClaves('/api/sica/claves', 'GET').then(d => {
   if (!d.ok) return;
   clavesOrientadores = d.orientadores || [];
   clavesRoles = d.roles || [];
-  const previa = $('#select-cuenta-clave').val();
-  $('#grupo-orientadores-clave').html(clavesOrientadores.map(o => '<option value="ori:' + esc(o.id) + '">' + esc(o.nombre) + (o.estado === 'propia' ? ' ✔' : o.estado === 'borrada' ? ' (sin contraseña)' : '') + '</option>').join(''));
-  if (previa && $('#select-cuenta-clave option[value="' + previa + '"]').length) $('#select-cuenta-clave').val(previa);
-  const insignia = est => est === 'propia' ? '<span class="badge bg-success">Contraseña propia</span>'
-   : est === 'borrada' ? '<span class="badge bg-danger">Sin contraseña: genera una nueva</span>'
-   : '<span class="badge bg-secondary">Contraseña general</span>';
-  const roles = clavesRoles.map(r => esc(NOMBRES_CUENTA[r.rol] || r.rol) + ' ' + (r.borrada ? '<span class="badge bg-danger">Sin contraseña: genera una nueva</span>' : '<span class="badge bg-success">Con contraseña</span>')).join(' · ');
-  $('#lista-claves-orientadores').html(
-   (roles ? '<div><span class="fw-semibold" style="color:#800020">Roles:</span> ' + roles + '</div>' : '') +
-   (clavesOrientadores.length ? '<div class="mt-1"><span class="fw-semibold" style="color:#800020">Orientadores:</span> ' + clavesOrientadores.map(o => esc(o.nombre) + ' ' + insignia(o.estado)).join(' · ') + '</div>' : ''));
-  cambiarCuentaClave();
+  renderClaves();
+  if (!temporizadorClaves) temporizadorClaves = setInterval(() => { if ($('#bloque-claves').is(':visible')) cargarClaves(); }, 20000);
  });
 }
-function cambiarCuentaClave() {
- const v = $('#select-cuenta-clave').val() || '';
- $('#campo-clave-actual').toggleClass('d-none', v !== 'rol:control');
- const o = v.startsWith('ori:') ? clavesOrientadores.find(x => x.id === v.slice(4)) : null;
- const r = v.startsWith('rol:') ? clavesRoles.find(x => x.rol === v.slice(4)) : null;
- $('#btn-quitar-clave').toggleClass('d-none', !(o && o.estado === 'propia'));
- // El enlace de "olvidó su contraseña" aparece con cualquier cuenta menos la de Control Escolar y las que ya están borradas
- const yaBorrada = (o && o.estado === 'borrada') || (r && r.borrada);
- $('#zona-borrar-claves').toggleClass('d-none', v === 'rol:control' || !!yaBorrada || !v);
+function datosCuenta() {
+ if (cuentaSel.startsWith('ori:')) {
+  const o = clavesOrientadores.find(x => x.id === cuentaSel.slice(4));
+  return o ? {nombre: o.nombre, tipo: 'ori', borrada: o.estado === 'borrada', bloqueada: !!o.bloqueada, propia: o.estado === 'propia', correo: correosRoles.orientador || ''} : null;
+ }
+ if (cuentaSel.startsWith('rol:')) {
+  const rol = cuentaSel.slice(4), r = clavesRoles.find(x => x.rol === rol) || {};
+  return {nombre: NOMBRES_CUENTA[rol] || rol, tipo: 'rol', rol: rol, control: rol === 'control', borrada: !!r.borrada, bloqueada: !!r.bloqueada, correo: correosRoles[rol] || ''};
+ }
+ return null;
+}
+function renderClaves() {
+ // Botones de rol
+ let h = ['director', 'subdirector', 'orientador', 'control'].map(rol => {
+  const r = clavesRoles.find(x => x.rol === rol) || {};
+  return '<button type="button" class="btn-cuenta' + (cuentaSel === 'rol:' + rol ? ' activa' : '') + ((r.borrada || r.bloqueada) ? ' alerta' : '') + '" onclick="elegirCuenta(\'rol:' + rol + '\')">' +
+   esc(NOMBRES_CUENTA[rol]) + (rol === 'control' ? '' : ' ' + etiquetaCuenta(r.borrada, r.bloqueada)) + '</button>';
+ }).join('');
+ const pendientesOri = clavesOrientadores.filter(o => o.bloqueada || o.estado === 'borrada').length;
+ h += '<button type="button" class="btn-cuenta' + (listaOriAbierta ? ' activa' : '') + (pendientesOri ? ' alerta' : '') + '" onclick="abrirListaOrientadores()"><i class="fa-solid fa-user-tie"></i> Orientador · contraseña personal' +
+  (pendientesOri ? ' <span class="etq mal">' + pendientesOri + '</span>' : '') + '</button>';
+ $('#botones-roles-clave').html(h);
+ // Botones de orientadores
+ $('#zona-chips-ori').toggleClass('d-none', !listaOriAbierta);
+ $('#chips-orientadores').html(clavesOrientadores.length ? clavesOrientadores.map(o =>
+  '<button type="button" class="btn-cuenta' + (cuentaSel === 'ori:' + o.id ? ' activa' : '') + ((o.bloqueada || o.estado === 'borrada') ? ' alerta' : '') + '" onclick="elegirCuenta(\'ori:' + esc(o.id) + '\')">' + esc(o.nombre) + ' ' +
+  (o.bloqueada ? '<span class="etq mal">Bloqueada</span>' : o.estado === 'borrada' ? '<span class="etq mal">Sin contraseña</span>' : o.estado === 'propia' ? '<span class="etq bien">Propia</span>' : '<span class="etq">General</span>') + '</button>'
+ ).join('') : '<span class="small text-muted">Aún no hay orientadores dados de alta.</span>');
+ // Resumen de cuentas que esperan a Control Escolar
+ const esperan = [];
+ clavesRoles.forEach(r => { if (r.bloqueada || r.borrada) esperan.push(NOMBRES_CUENTA[r.rol] || r.rol); });
+ clavesOrientadores.forEach(o => { if (o.bloqueada || o.estado === 'borrada') esperan.push(o.nombre); });
+ $('#resumen-bloqueadas').html(esperan.length ? '<span class="badge bg-danger me-1">' + esperan.length + '</span> Esperan una contraseña nueva: <b>' + esperan.map(esc).join(', ') + '</b>' : '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i> Ninguna cuenta está esperando contraseña.</span>');
+ renderPanelCuenta();
+}
+function renderPanelCuenta() {
+ const c = datosCuenta();
+ $('#panel-cuenta-clave').toggleClass('d-none', !c);
+ if (!c) return;
+ $('#panel-titulo').text(c.nombre);
+ $('#panel-estado').html(c.control ? '' : etiquetaCuenta(c.borrada, c.bloqueada));
+ $('#campo-clave-actual').toggleClass('d-none', !c.control);
+ $('#btn-borrar-clave').toggleClass('d-none', !!c.control || c.borrada);
+ $('#btn-desbloquear-clave').toggleClass('d-none', !c.bloqueada);
+ $('#btn-quitar-clave').toggleClass('d-none', !(c.tipo === 'ori' && c.propia));
+ $('#panel-ayuda').text(c.control ? 'Para cambiar tu propia contraseña escribe primero la actual.'
+  : c.bloqueada ? 'La persona marcó "¿Olvidaste tu contraseña?" y no puede entrar. Borra la anterior y genera una nueva para darle acceso otra vez.'
+  : c.borrada ? 'No tiene contraseña: no puede entrar. Genera una nueva y entrégasela.'
+  : c.tipo === 'ori' && !c.propia ? 'Usa la contraseña general del rol Orientador. Genera una propia para que no la comparta.'
+  : 'Puedes borrar su contraseña o generarle una nueva directamente.');
+}
+function elegirCuenta(v) {
+ if (cuentaSel !== v) { limpiarCamposClave(); ocultarEntrega(); $('#resumen-claves').text(''); }
+ cuentaSel = v;
+ if (v.startsWith('ori:')) listaOriAbierta = true;
+ renderClaves();
+}
+function abrirListaOrientadores() {
+ listaOriAbierta = !listaOriAbierta;
+ if (!listaOriAbierta && cuentaSel.startsWith('ori:')) cuentaSel = '';
+ renderClaves();
 }
 /* Indicaciones en vivo: se marcan en verde las que ya cumple la contraseña escrita */
 function revisarRequisitosClave() {
@@ -1144,59 +1227,156 @@ function limpiarCamposClave() {
  $('#clave-actual,#clave-nueva,#clave-confirmar').val('');
  $('#ver-claves').prop('checked', false); verClavesNuevas(); revisarRequisitosClave();
 }
+/* Genera una contraseña segura al azar con el generador criptográfico del navegador (sin letras ni números que se confunden) */
+function generarClave() {
+ const may = 'ABCDEFGHJKLMNPQRSTUVWXYZ', min = 'abcdefghijkmnpqrstuvwxyz', num = '23456789', todo = may + min + num;
+ const al = n => { const b = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n; let x; do { crypto.getRandomValues(b); x = b[0]; } while (x >= lim); return x % n; };
+ let c;
+ do {
+  const ch = [may[al(may.length)], min[al(min.length)], num[al(num.length)]];
+  while (ch.length < 12) ch.push(todo[al(todo.length)]);
+  for (let i = ch.length - 1; i > 0; i--) { const j = al(i + 1); [ch[i], ch[j]] = [ch[j], ch[i]]; }
+  c = ch.join('');
+ } while (/prepa0?6|epo0?6/i.test(c));
+ $('#clave-nueva,#clave-confirmar').val(c);
+ $('#ver-claves').prop('checked', true); verClavesNuevas(); revisarRequisitosClave();
+}
 function guardarClave() {
- const v = $('#select-cuenta-clave').val() || '';
+ const c = datosCuenta();
+ if (!c) { alert('Primero elige una cuenta.'); return; }
  const nueva = $('#clave-nueva').val(), conf = $('#clave-confirmar').val();
  if (!revisarRequisitosClave()) { alert('La contraseña nueva aún no cumple las indicaciones que aparecen debajo de las casillas.'); return; }
- const nombre = $('#select-cuenta-clave option:selected').text().replace(' ✔', '');
  let url, cuerpo;
- if (v.startsWith('ori:')) {
+ if (c.tipo === 'ori') {
   url = '/api/sica/claves/orientador';
-  cuerpo = {orientador_id: v.slice(4), password: nueva, password_confirmation: conf};
+  cuerpo = {orientador_id: cuentaSel.slice(4), password: nueva, password_confirmation: conf};
  } else {
   url = '/api/sica/claves/rol';
-  cuerpo = {rol: v.slice(4), password: nueva, password_confirmation: conf, password_actual: $('#clave-actual').val()};
+  cuerpo = {rol: c.rol, password: nueva, password_confirmation: conf, password_actual: $('#clave-actual').val()};
  }
  llamarClaves(url, 'POST', cuerpo).then(d => {
   if (!d.ok) { $('#resumen-claves').text(''); alert(d.mensaje || 'No se pudo guardar la contraseña.'); return; }
+  if (c.control) {
+   $('#resumen-claves').text('Tu contraseña de Control Escolar se actualizó.');
+  } else {
+   claveEntrega = {para: c.nombre, correo: c.correo, clave: nueva};
+   $('#entrega-para').text(c.nombre); $('#entrega-correo').text(c.correo); $('#entrega-clave-texto').text(nueva);
+   $('#entrega-clave').removeClass('d-none');
+   $('#resumen-claves').text('Contraseña nueva guardada para ' + c.nombre + '. Ya puede entrar con ella.');
+  }
   limpiarCamposClave();
-  $('#resumen-claves').text('Contraseña actualizada: ' + nombre + '. Entrégasela a esa persona; el sistema no la vuelve a mostrar.');
   cargarClaves();
  }).catch(() => alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
 }
-/* Control Escolar borra la contraseña guardada de la cuenta elegida (la olvidó) y después genera una nueva */
+function ocultarEntrega() {
+ claveEntrega = null;
+ $('#entrega-clave-texto').text(''); $('#entrega-clave').addClass('d-none');
+}
+function copiarEntrega() {
+ if (!claveEntrega) return;
+ const t = claveEntrega.clave;
+ const aviso = () => $('#resumen-claves').text('Contraseña copiada. Entrégala en persona.');
+ if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(aviso).catch(() => {}); return; }
+ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+ try { document.execCommand('copy'); aviso(); } catch (e) {}
+ document.body.removeChild(ta);
+}
+function imprimirEntrega() {
+ if (!claveEntrega) return;
+ const w = window.open('', '_blank', 'width=640,height=720');
+ if (!w) { alert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes e inténtalo otra vez.'); return; }
+ const fecha = new Date().toLocaleDateString('es-MX', {day: '2-digit', month: 'long', year: 'numeric'});
+ w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Entrega de contraseña</title>' +
+  '<style>body{font-family:Arial,sans-serif;padding:40px;color:#222}h2{color:#800020;margin:0 0 4px}.c{border:2px dashed #800020;border-radius:10px;padding:18px;margin:22px 0}' +
+  '.k{font:700 26px monospace;letter-spacing:2px}small{color:#555}</style></head><body>' +
+  '<h2>Escuela Preparatoria Oficial Núm. 6</h2><div>SICA-EPO6 · Entrega de contraseña</div>' +
+  '<div class="c"><div>Para: <b>' + esc(claveEntrega.para) + '</b></div><div>Correo: <b>' + esc(claveEntrega.correo) + '</b></div>' +
+  '<div style="margin-top:14px">Contraseña:</div><div class="k">' + esc(claveEntrega.clave) + '</div></div>' +
+  '<small>Fecha: ' + esc(fecha) + '. Entregada por Control Escolar. Guarda esta hoja en un lugar seguro o destrúyela después de memorizar la contraseña. No la compartas con nadie.</small>' +
+  '</body></html>');
+ w.document.close(); w.focus(); w.print();
+}
+/* Control Escolar borra la contraseña guardada de la cuenta elegida y después genera una nueva */
 function borrarClaveCuenta() {
- const v = $('#select-cuenta-clave').val() || '';
- if (!v || v === 'rol:control') return;
- const nombre = $('#select-cuenta-clave option:selected').text().replace(' ✔', '').replace(' (sin contraseña)', '');
- if (!confirm('Se borrará la contraseña guardada de: ' + nombre + '.\nNo podrá entrar hasta que generes una nueva aquí mismo. No se borra ningún otro dato. ¿Continuar?')) return;
- const url = v.startsWith('ori:') ? '/api/sica/claves/orientador/' + encodeURIComponent(v.slice(4)) + '/borrar' : '/api/sica/claves/rol/' + encodeURIComponent(v.slice(4));
- llamarClaves(url, v.startsWith('ori:') ? 'POST' : 'DELETE').then(d => {
+ const c = datosCuenta();
+ if (!c || c.control) return;
+ if (!confirm('Se borrará la contraseña guardada de: ' + c.nombre + '.\nNo podrá entrar hasta que generes una nueva aquí mismo. No se borra ningún otro dato. ¿Continuar?')) return;
+ const url = c.tipo === 'ori' ? '/api/sica/claves/orientador/' + encodeURIComponent(cuentaSel.slice(4)) + '/borrar' : '/api/sica/claves/rol/' + encodeURIComponent(c.rol);
+ llamarClaves(url, c.tipo === 'ori' ? 'POST' : 'DELETE').then(d => {
   if (!d.ok) { alert(d.mensaje || 'No se pudo borrar la contraseña.'); return; }
-  $('#resumen-claves').text('Se borró la contraseña anterior de ' + nombre + '. Escribe abajo la contraseña nueva y pulsa Guardar.');
-  cargarClaves().then(() => $('#clave-nueva').focus());
+  ocultarEntrega();
+  $('#resumen-claves').text('Se borró la contraseña anterior de ' + c.nombre + '. Pulsa Generar, luego Guardar, y entrégasela.');
+  cargarClaves();
  }).catch(() => alert('No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
 }
-/* Pantalla de inicio de sesión: qué hacer si se olvidó la contraseña */
-function mostrarOlvideClave() {
- const rol = $('#rol-select').val();
- const msg = {
-  orientador: 'Avisa a Control Escolar e indica tu nombre. Ellos borrarán tu contraseña anterior y generarán una nueva para ti. Mientras tanto no podrás entrar.',
-  director: 'Avisa a Control Escolar. Ellos borrarán la contraseña anterior de la cuenta de Director y generarán una nueva.',
-  subdirector: 'Avisa a Control Escolar. Ellos borrarán la contraseña anterior de la cuenta de Subdirector y generarán una nueva.',
-  control: 'Avisa a quien administra el sistema: debe ejecutar en el servidor <code>php artisan sica:restablecer-claves</code> para asignar una contraseña nueva. No se pierde ningún dato.'
- }[rol] || 'Avisa a Control Escolar para que genere una contraseña nueva.';
- $('#aviso-olvide').html('<i class="fa-solid fa-circle-info me-1"></i> <b>¿Olvidaste tu contraseña?</b> ' + msg).toggleClass('d-none', false);
+/* Quita el bloqueo sin cambiar la contraseña (por ejemplo, si alguien lo marcó por error) */
+function desbloquearCuenta() {
+ const c = datosCuenta();
+ if (!c || !c.bloqueada) return;
+ if (!confirm('Se quitará el bloqueo de ' + c.nombre + ' sin cambiar su contraseña. ¿Continuar?')) return;
+ const url = c.tipo === 'ori' ? '/api/sica/claves/orientador/' + encodeURIComponent(cuentaSel.slice(4)) + '/desbloquear' : '/api/sica/claves/rol/' + encodeURIComponent(c.rol) + '/desbloquear';
+ llamarClaves(url, 'POST').then(d => {
+  if (!d.ok) { alert(d.mensaje || 'No se pudo desbloquear.'); return; }
+  $('#resumen-claves').text('Se quitó el bloqueo de ' + c.nombre + '.');
+  cargarClaves();
+ });
 }
 function quitarClaveOrientador() {
- const v = $('#select-cuenta-clave').val() || '';
- if (!v.startsWith('ori:')) return;
+ if (!cuentaSel.startsWith('ori:')) return;
  if (!confirm('Este orientador volverá a entrar con la contraseña general del rol Orientador. ¿Continuar?')) return;
- llamarClaves('/api/sica/claves/orientador/' + encodeURIComponent(v.slice(4)), 'DELETE').then(d => {
+ llamarClaves('/api/sica/claves/orientador/' + encodeURIComponent(cuentaSel.slice(4)), 'DELETE').then(d => {
   if (!d.ok) { alert(d.mensaje || 'No se pudo quitar la contraseña propia.'); return; }
   $('#resumen-claves').text('Se quitó la contraseña propia. Ahora usa la general del rol Orientador.');
   cargarClaves();
  });
+}
+/* ---- Pantalla de inicio de sesión: ventana central de "¿Olvidaste tu contraseña?" ---- */
+function abrirModalCuenta(modo, mensaje) {
+ const rol = $('#rol-select').val();
+ const nombre = rol === 'orientador' ? ($('#select-orientador-login option:selected').text() || 'Orientador') : (nombresRoles[rol] || rol);
+ const btn = (txt, cls, fn) => '<button type="button" class="btn ' + cls + ' px-4" onclick="' + fn + '">' + txt + '</button>';
+ let titulo, texto, botones, icono = 'fa-lock';
+ if (modo === 'confirmar') {
+  titulo = '¿Olvidaste tu contraseña?';
+  texto = 'Si continúas, la cuenta de <b>' + esc(nombre) + '</b> quedará bloqueada y no podrás entrar hasta que Control Escolar borre tu contraseña anterior, genere una nueva y te la entregue.';
+  botones = btn('Cancelar', 'btn-outline-secondary', 'cerrarModalCuenta()') + btn('Sí, bloquear y avisar', 'btn-vinotinto', 'confirmarOlvido()');
+  icono = 'fa-circle-question';
+ } else if (modo === 'info') {
+  titulo = 'Control Escolar';
+  texto = mensaje;
+  botones = btn('Entendido', 'btn-vinotinto', 'cerrarModalCuenta()');
+  icono = 'fa-circle-info';
+ } else {
+  titulo = 'Cuenta bloqueada';
+  texto = mensaje || 'Avisa a Control Escolar. Mientras tanto no podrás entrar.';
+  botones = btn('Entendido', 'btn-vinotinto', 'cerrarModalCuenta()');
+ }
+ $('#modal-cuenta-icono i').attr('class', 'fa-solid ' + icono);
+ $('#modal-cuenta-titulo').text(titulo);
+ $('#modal-cuenta-texto').html(modo === 'confirmar' ? texto : esc(texto));
+ $('#modal-cuenta-botones').html(botones);
+ $('#modal-cuenta').removeClass('d-none');
+}
+function cerrarModalCuenta() { $('#modal-cuenta').addClass('d-none'); }
+function olvideContrasena() {
+ const rol = $('#rol-select').val();
+ if (rol === 'orientador' && !$('#select-orientador-login').val()) { alert('Primero selecciona tu nombre de la lista.'); return; }
+ abrirModalCuenta('confirmar');
+}
+function confirmarOlvido() {
+ const rol = $('#rol-select').val();
+ const o = rol === 'orientador' ? db.orientadores.find(x => x.id === $('#select-orientador-login').val()) : null;
+ fetch('/auth/olvide', {
+  method: 'POST',
+  headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+  body: JSON.stringify({email: $('#input-correo').val(), orientador: o ? o.nombre : null})
+ }).then(r => r.json().catch(() => ({})).then(d => ({status: r.status, ...d})))
+ .then(d => {
+  $('#input-clave').val('');
+  if (d.ok === false || !d.mensaje) { abrirModalCuenta('info', d.mensaje || (d.status === 429 ? 'Demasiados intentos. Espera un minuto.' : 'No se pudo completar. Inténtalo de nuevo.')); return; }
+  abrirModalCuenta(d.bloqueada ? 'bloqueada' : 'info', d.mensaje);
+ })
+ .catch(() => abrirModalCuenta('info', 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'));
 }
 /* ============ ESCÁNER QR (cámara) ============ */
 function iniciarScanner(el, modoFn) {

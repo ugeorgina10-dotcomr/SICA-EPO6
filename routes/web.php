@@ -27,6 +27,7 @@ Route::get('/login', function () {
 
 // Autenticación
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:20,1')->name('auth.login');
+Route::post('/auth/olvide', [AuthController::class, 'olvide'])->middleware('throttle:5,1,olvide')->name('auth.olvide');
 Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
 
@@ -71,6 +72,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/orientador', [ClavesController::class, 'orientador'])->name('sica.claves.orientador');
         Route::delete('/rol/{rol}', [ClavesController::class, 'borrarRol'])->name('sica.claves.borrar.rol');
         Route::post('/orientador/{orientador}/borrar', [ClavesController::class, 'borrarOrientador'])->name('sica.claves.borrar.orientador');
+        Route::post('/rol/{rol}/desbloquear', [ClavesController::class, 'desbloquearRol'])->name('sica.claves.desbloquear.rol');
+        Route::post('/orientador/{orientador}/desbloquear', [ClavesController::class, 'desbloquearOrientador'])->name('sica.claves.desbloquear.orientador');
         Route::delete('/orientador/{orientador}', [ClavesController::class, 'quitarOrientador'])->name('sica.claves.quitar');
     });
 });
