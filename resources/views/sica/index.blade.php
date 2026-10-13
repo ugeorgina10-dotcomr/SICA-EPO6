@@ -95,6 +95,18 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 .modal-cuenta-icono{width:64px;height:64px;border-radius:50%;background:#fdf3f5;color:#800020;font-size:1.7rem;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
 .modal-cuenta-caja h5{font-weight:700;color:#800020}
 .modal-cuenta-caja p{color:#444;font-size:.95rem}
+.dd-ori{position:relative;display:inline-block}
+.dd-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:290px;max-height:260px;overflow:auto;background:#fff;border:1px solid #d9c3c8;border-radius:.8rem;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:30;padding:.35rem}
+.dd-menu.d-none{display:none!important}
+.dd-item{display:flex;width:100%;justify-content:space-between;align-items:center;gap:.6rem;border:0;background:transparent;text-align:left;padding:.45rem .6rem;border-radius:.5rem;font-size:.88rem;color:#333;cursor:pointer}
+.dd-item:hover{background:#fdf3f5}
+.dd-item .etq{font-size:.68rem;font-weight:600;border-radius:999px;padding:.1rem .5rem;background:#e9ecef;color:#495057}
+.dd-item .etq.mal{background:#dc3545;color:#fff}
+.dd-item .etq.bien{background:#d1e7dd;color:#0f5132}
+.burbujas-claves{position:fixed;top:14px;right:14px;z-index:1900;display:flex;flex-direction:column;gap:10px;max-width:340px;width:calc(100% - 28px)}
+.burbuja{position:relative;background:#800020;color:#fff;border-radius:1.1rem 1.1rem .3rem 1.1rem;padding:.8rem 2rem .8rem 1rem;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:.9rem;animation:burbujaEntra .35s ease-out}
+.burbuja-x{position:absolute;top:4px;right:10px;border:0;background:transparent;color:#fff;font-size:1.3rem;line-height:1;cursor:pointer;opacity:.8}
+@keyframes burbujaEntra{from{opacity:0;transform:translateY(-12px) scale(.95)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body id="cuerpo-contenedor" class="bg-login">
@@ -502,10 +514,6 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <p class="text-muted small mb-3">Control Escolar genera y entrega las contraseñas. Elige un rol; si es orientador con contraseña propia, elige su nombre. Después borra su contraseña, genera una nueva o quita el bloqueo.</p>
  <div class="fw-semibold small mb-2" style="color:#800020">Roles</div>
  <div id="botones-roles-clave" class="d-flex flex-wrap gap-2 mb-2"></div>
- <div id="zona-chips-ori" class="mt-2 d-none">
-  <div class="fw-semibold small mb-2" style="color:#800020">Orientadores · contraseña personal</div>
-  <div id="chips-orientadores" class="d-flex flex-wrap gap-2"></div>
- </div>
  <div id="resumen-bloqueadas" class="mt-3 small"></div>
 
  <div id="panel-cuenta-clave" class="mt-3 p-3 rounded-3 d-none" style="background:#fdf8f8;border:1px solid #eee">
@@ -568,6 +576,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </div>
 </div>
 </div>
+<div id="burbujas-claves" class="burbujas-claves"></div>
 <div id="modal-cuenta" class="modal-cuenta d-none" role="dialog" aria-modal="true" aria-labelledby="modal-cuenta-titulo">
  <div class="modal-cuenta-caja">
   <div class="modal-cuenta-icono" id="modal-cuenta-icono"><i class="fa-solid fa-lock"></i></div>
@@ -1120,10 +1129,10 @@ function llamarClaves(url, metodo, cuerpo, reintento) {
   });
  });
 }
-const NOMBRES_CUENTA = {director: 'Director', subdirector: 'Subdirector', orientador: 'Orientador (contraseña general)', control: 'Control Escolar (mi cuenta)'};
+const NOMBRES_CUENTA = {director: 'Director', subdirector: 'Subdirector', orientador: 'Orientadores · contraseña general', control: 'Control Escolar (mi cuenta)'};
 let clavesRoles = [];        // [{rol, borrada, bloqueada}]
 let cuentaSel = '';          // 'rol:director' | 'rol:control' | 'ori:ID' | '' (ninguna)
-let listaOriAbierta = false; // se muestran los nombres de los orientadores
+let menuOriAbierto = false;  // lista desplegable de orientadores abierta
 let claveEntrega = null;     // {para, correo, clave}: solo en memoria, se borra al ocultar la tarjeta
 let temporizadorClaves = null;
 function etiquetaCuenta(borrada, bloqueada) {
@@ -1135,7 +1144,7 @@ function cargarClaves() {
   clavesOrientadores = d.orientadores || [];
   clavesRoles = d.roles || [];
   renderClaves();
-  if (!temporizadorClaves) temporizadorClaves = setInterval(() => { if ($('#bloque-claves').is(':visible')) cargarClaves(); }, 20000);
+  if (!temporizadorClaves) temporizadorClaves = setInterval(() => { if (rolActivo === 'control' && !document.hidden) cargarClaves(); }, 10000);
  });
 }
 function datosCuenta() {
@@ -1150,28 +1159,30 @@ function datosCuenta() {
  return null;
 }
 function renderClaves() {
- // Botones de rol
- let h = ['director', 'subdirector', 'orientador', 'control'].map(rol => {
+ const alerta = (b, o) => (b || o) ? ' alerta' : '';
+ const rolBtn = rol => {
   const r = clavesRoles.find(x => x.rol === rol) || {};
-  return '<button type="button" class="btn-cuenta' + (cuentaSel === 'rol:' + rol ? ' activa' : '') + ((r.borrada || r.bloqueada) ? ' alerta' : '') + '" onclick="elegirCuenta(\'rol:' + rol + '\')">' +
+  return '<button type="button" class="btn-cuenta' + (cuentaSel === 'rol:' + rol ? ' activa' : '') + alerta(r.borrada, r.bloqueada) + '" onclick="elegirCuenta(\'rol:' + rol + '\')">' +
    esc(NOMBRES_CUENTA[rol]) + (rol === 'control' ? '' : ' ' + etiquetaCuenta(r.borrada, r.bloqueada)) + '</button>';
- }).join('');
+ };
+ const oSel = cuentaSel.startsWith('ori:') ? clavesOrientadores.find(x => x.id === cuentaSel.slice(4)) : null;
  const pendientesOri = clavesOrientadores.filter(o => o.bloqueada || o.estado === 'borrada').length;
- h += '<button type="button" class="btn-cuenta' + (listaOriAbierta ? ' activa' : '') + (pendientesOri ? ' alerta' : '') + '" onclick="abrirListaOrientadores()"><i class="fa-solid fa-user-tie"></i> Orientador · contraseña personal' +
-  (pendientesOri ? ' <span class="etq mal">' + pendientesOri + '</span>' : '') + '</button>';
- $('#botones-roles-clave').html(h);
- // Botones de orientadores
- $('#zona-chips-ori').toggleClass('d-none', !listaOriAbierta);
- $('#chips-orientadores').html(clavesOrientadores.length ? clavesOrientadores.map(o =>
-  '<button type="button" class="btn-cuenta' + (cuentaSel === 'ori:' + o.id ? ' activa' : '') + ((o.bloqueada || o.estado === 'borrada') ? ' alerta' : '') + '" onclick="elegirCuenta(\'ori:' + esc(o.id) + '\')">' + esc(o.nombre) + ' ' +
+ const items = clavesOrientadores.length ? clavesOrientadores.map(o =>
+  '<button type="button" class="dd-item" onclick="elegirCuenta(\'ori:' + esc(o.id) + '\')"><span>' + esc(o.nombre) + '</span>' +
   (o.bloqueada ? '<span class="etq mal">Bloqueada</span>' : o.estado === 'borrada' ? '<span class="etq mal">Sin contraseña</span>' : o.estado === 'propia' ? '<span class="etq bien">Propia</span>' : '<span class="etq">General</span>') + '</button>'
- ).join('') : '<span class="small text-muted">Aún no hay orientadores dados de alta.</span>');
+ ).join('') : '<div class="small text-muted p-2">Aún no hay orientadores dados de alta.</div>';
+ const personal = '<div class="dd-ori"><button type="button" class="btn-cuenta' + ((menuOriAbierto || oSel) ? ' activa' : '') + alerta(pendientesOri && !oSel, false) + '" onclick="alternarMenuOrientadores()">' +
+  '<i class="fa-solid fa-user-tie"></i> Orientadores · contraseña personal' + (oSel ? ': ' + esc(oSel.nombre) : (pendientesOri ? ' <span class="etq mal">' + pendientesOri + '</span>' : '')) +
+  ' <i class="fa-solid fa-chevron-down" style="font-size:.7rem"></i></button>' +
+  '<div class="dd-menu' + (menuOriAbierto ? '' : ' d-none') + '">' + items + '</div></div>';
+ $('#botones-roles-clave').html(rolBtn('director') + rolBtn('subdirector') + rolBtn('orientador') + personal + rolBtn('control'));
  // Resumen de cuentas que esperan a Control Escolar
  const esperan = [];
  clavesRoles.forEach(r => { if (r.bloqueada || r.borrada) esperan.push(NOMBRES_CUENTA[r.rol] || r.rol); });
  clavesOrientadores.forEach(o => { if (o.bloqueada || o.estado === 'borrada') esperan.push(o.nombre); });
  $('#resumen-bloqueadas').html(esperan.length ? '<span class="badge bg-danger me-1">' + esperan.length + '</span> Esperan una contraseña nueva: <b>' + esperan.map(esc).join(', ') + '</b>' : '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i> Ninguna cuenta está esperando contraseña.</span>');
  renderPanelCuenta();
+ sincronizarBurbujas();
 }
 function renderPanelCuenta() {
  const c = datosCuenta();
@@ -1189,16 +1200,56 @@ function renderPanelCuenta() {
   : c.tipo === 'ori' && !c.propia ? 'Usa la contraseña general del rol Orientador. Genera una propia para que no la comparta.'
   : 'Puedes borrar su contraseña o generarle una nueva directamente.');
 }
-function elegirCuenta(v) {
- if (cuentaSel !== v) { limpiarCamposClave(); ocultarEntrega(); $('#resumen-claves').text(''); }
- cuentaSel = v;
- if (v.startsWith('ori:')) listaOriAbierta = true;
+/* Tocar un botón ya activo lo cierra: el panel y la lista se pliegan y todo lo de abajo sube */
+function cerrarCuenta() {
+ cuentaSel = ''; menuOriAbierto = false;
+ limpiarCamposClave(); ocultarEntrega(); $('#resumen-claves').text('');
  renderClaves();
 }
-function abrirListaOrientadores() {
- listaOriAbierta = !listaOriAbierta;
- if (!listaOriAbierta && cuentaSel.startsWith('ori:')) cuentaSel = '';
+function elegirCuenta(v) {
+ if (cuentaSel === v) { cerrarCuenta(); return; }
+ if (cuentaSel) { limpiarCamposClave(); ocultarEntrega(); $('#resumen-claves').text(''); }
+ cuentaSel = v; menuOriAbierto = false;
  renderClaves();
+ setTimeout(() => { const el = document.getElementById('panel-cuenta-clave'); if (el && el.scrollIntoView) el.scrollIntoView({behavior: 'smooth', block: 'nearest'}); }, 0);
+}
+function alternarMenuOrientadores() {
+ if (menuOriAbierto || cuentaSel.startsWith('ori:')) { cerrarCuenta(); return; }
+ if (cuentaSel) { cuentaSel = ''; limpiarCamposClave(); ocultarEntrega(); $('#resumen-claves').text(''); }
+ menuOriAbierto = true;
+ renderClaves();
+}
+$(document).on('click', function (e) {
+ if (menuOriAbierto && !$(e.target).closest('.dd-ori').length) { menuOriAbierto = false; renderClaves(); }
+});
+/* Burbujas para Control Escolar: aparecen cuando otra cuenta pulsa "¿Olvidaste tu contraseña?" */
+let burbujasVistas = {};
+function sincronizarBurbujas() {
+ if (rolActivo !== 'control') { $('#burbujas-claves').empty(); return; }
+ const pend = [];
+ clavesRoles.forEach(r => { if (r.bloqueada) pend.push({cuenta: 'rol:' + r.rol, nombre: NOMBRES_CUENTA[r.rol] || r.rol, k: 'rol:' + r.rol + '|' + r.olvido_at}); });
+ clavesOrientadores.forEach(o => { if (o.bloqueada) pend.push({cuenta: 'ori:' + o.id, nombre: 'Orientador ' + o.nombre, k: 'ori:' + o.id + '|' + o.olvido_at}); });
+ const claves = pend.map(p => p.k);
+ $('#burbujas-claves .burbuja').each(function () { if (claves.indexOf($(this).attr('data-k')) === -1) $(this).remove(); });
+ pend.forEach(p => {
+  if (burbujasVistas[p.k]) return;
+  burbujasVistas[p.k] = true;
+  $('#burbujas-claves').append(
+   '<div class="burbuja" role="alert" data-k="' + esc(p.k) + '" data-cuenta="' + esc(p.cuenta) + '">' +
+   '<button type="button" class="burbuja-x" aria-label="Cerrar" onclick="$(this).closest(\'.burbuja\').remove()">&times;</button>' +
+   '<div class="fw-bold"><i class="fa-solid fa-key me-1"></i> ' + esc(p.nombre) + ' solicita su nueva contraseña</div>' +
+   '<div class="small mt-1">Marcó "¿Olvidaste tu contraseña?". Su cuenta quedó bloqueada y no podrá entrar hasta que le des acceso.</div>' +
+   '<button type="button" class="btn btn-sm btn-light fw-semibold mt-2" onclick="abrirSolicitud(this)">Dar acceso</button></div>');
+ });
+}
+function abrirSolicitud(btn) {
+ const b = $(btn).closest('.burbuja');
+ const v = b.attr('data-cuenta');
+ b.remove();
+ try { seleccionarPerfil('control'); } catch (e) {}   // abre el panel de Control Escolar aunque falle la gráfica
+ cuentaSel = '';
+ elegirCuenta(v);
+ setTimeout(() => { const el = document.getElementById('bloque-claves'); if (el && el.scrollIntoView) el.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 50);
 }
 /* Indicaciones en vivo: se marcan en verde las que ya cumple la contraseña escrita */
 function revisarRequisitosClave() {
@@ -1338,8 +1389,8 @@ function abrirModalCuenta(modo, mensaje) {
  let titulo, texto, botones, icono = 'fa-lock';
  if (modo === 'confirmar') {
   titulo = '¿Olvidaste tu contraseña?';
-  texto = 'Si continúas, la cuenta de <b>' + esc(nombre) + '</b> quedará bloqueada y no podrás entrar hasta que Control Escolar borre tu contraseña anterior, genere una nueva y te la entregue.';
-  botones = btn('Cancelar', 'btn-outline-secondary', 'cerrarModalCuenta()') + btn('Sí, bloquear y avisar', 'btn-vinotinto', 'confirmarOlvido()');
+  texto = 'Avisa a Control Escolar. Tu cuenta (<b>' + esc(nombre) + '</b>) quedará bloqueada automáticamente y no podrás entrar hasta que Control Escolar borre tu contraseña anterior, genere una nueva y te dé acceso otra vez.';
+  botones = btn('Avisar a Control Escolar', 'btn-vinotinto', 'confirmarOlvido()');
   icono = 'fa-circle-question';
  } else if (modo === 'info') {
   titulo = 'Control Escolar';

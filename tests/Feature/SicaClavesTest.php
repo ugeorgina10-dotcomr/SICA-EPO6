@@ -435,4 +435,17 @@ class SicaClavesTest extends TestCase
         $this->assertSame(['subdirector'], collect($r->json('roles'))->where('bloqueada', true)->pluck('rol')->values()->all());
         $this->assertTrue($r->json('orientadores.0.bloqueada'));
     }
+
+    public function test_el_estado_trae_la_hora_de_la_solicitud_para_las_burbujas_de_control(): void
+    {
+        Orientador::create(['nombre' => 'Ana']);
+        $this->postJson('/auth/olvide', ['email' => 'director@epo6.edu.mx'])->assertOk();
+        $this->postJson('/auth/olvide', ['email' => 'orientador1@epo6.edu.mx', 'orientador' => 'Ana'])->assertOk();
+
+        $r = $this->como('control')->getJson('/api/sica/claves')->assertOk();
+
+        $this->assertNotNull(collect($r->json('roles'))->firstWhere('rol', 'director')['olvido_at']);
+        $this->assertNull(collect($r->json('roles'))->firstWhere('rol', 'subdirector')['olvido_at']);
+        $this->assertNotNull($r->json('orientadores.0.olvido_at'));
+    }
 }

@@ -68,6 +68,7 @@ class ClavesController extends Controller
                     'rol'       => $u->rol,
                     'borrada'   => (string) $u->getAuthPassword() === '',
                     'bloqueada' => $u->olvido_at !== null,
+                    'olvido_at' => $u->olvido_at ? (string) $u->olvido_at : null,
                 ])
                 ->values(),
             'orientadores' => Orientador::orderBy('nombre')->get()
@@ -76,6 +77,7 @@ class ClavesController extends Controller
                     'nombre'    => $o->nombre,
                     'estado'    => $o->password === null ? 'general' : ($o->password === '' ? 'borrada' : 'propia'),
                     'bloqueada' => $o->olvido_at !== null,
+                    'olvido_at' => $o->olvido_at ? (string) $o->olvido_at : null,
                 ])
                 ->values(),
         ]);
