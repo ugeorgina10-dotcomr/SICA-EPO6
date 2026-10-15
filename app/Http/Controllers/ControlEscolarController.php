@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ajuste;
 use App\Models\Alumno;
 use App\Models\Asistencia;
 use App\Models\Grupo;
@@ -41,10 +42,8 @@ class ControlEscolarController extends Controller
     }
 
     /**
-     * Reemplaza la plantilla oficial (frente o reverso) de un turno en public/img.
-     * El JS envía el archivo convertido a PNG en "archivo" y el turno en "turno".
-     * Guarda: plantillamatutinofrente.png, plantillamatutinoreverso.png,
-     *         plantillavespertinofrente.png, plantillavespertinoreverso.png
+     * Guarda la plantilla oficial (frente o reverso) de un turno EN LA BASE DE DATOS.
+     * Antes se escribía en public/img, y en Railway esos archivos se pierden en cada despliegue.
      */
     public function plantillaOficial(Request $request, string $lado): JsonResponse
     {
@@ -55,18 +54,40 @@ class ControlEscolarController extends Controller
             'turno'   => 'required|in:Matutino,Vespertino',
         ]);
 
-        $carpeta = public_path('img');
-        $nombre  = 'plantilla' . strtolower($request->input('turno')) . $lado . '.png';
-        $destino = $carpeta . DIRECTORY_SEPARATOR . $nombre;
-
-        // Respaldo del diseño vigente, para poder volver atrás
-        if (file_exists($destino)) {
-            copy($destino, $carpeta . DIRECTORY_SEPARATOR . 'respaldo_' . date('Ymd_His') . '_' . $nombre);
-        }
-
-        $request->file('archivo')->move($carpeta, $nombre);
+        Ajuste::updateOrCreate(
+            ['clave' => self::clavePlantilla($request->input('turno'), $lado)],
+            ['valor' => base64_encode(file_get_contents($request->file('archivo')->getRealPath()))]
+        );
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Sirve la plantilla guardada en la BD; si no hay, 404 y la página usa la que viene en public/img */
+    public function verPlantillaOficial(string $turno, string $lado)
+    {
+        abort_unless(in_array($turno, ['Matutino', 'Vespertino'], true) && in_array($lado, ['frente', 'reverso'], true), 404);
+
+        $a = Ajuste::find(self::clavePlantilla($turno, $lado));
+        abort_unless($a && $a->valor, 404);
+
+        return response(base64_decode($a->valor), 200, [
+            'Content-Type'  => 'image/png',
+            'Cache-Control' => 'no-cache',
+        ]);
+    }
+
+    /** Vuelve a la plantilla original (la de public/img) */
+    public function borrarPlantillaOficial(string $turno, string $lado): JsonResponse
+    {
+        abort_unless(in_array($turno, ['Matutino', 'Vespertino'], true) && in_array($lado, ['frente', 'reverso'], true), 404);
+        Ajuste::where('clave', self::clavePlantilla($turno, $lado))->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    private static function clavePlantilla(string $turno, string $lado): string
+    {
+        return 'plantilla_' . strtolower($turno) . '_' . $lado;
     }
 
     /**

@@ -5,7 +5,7 @@
  *   - /api y /auth NUNCA se guardan: siempre van al servidor (los datos viven en la base de datos).
  * Si cambias algo en /vendor, sube el número de VERSION para que los equipos descarguen la copia nueva.
  */
-const VERSION = 'sica-v2';
+const VERSION = 'sica-v3';
 const C_ESTATICOS = VERSION + '-estaticos';
 const C_PAGINAS = VERSION + '-paginas';
 
@@ -104,7 +104,7 @@ self.addEventListener('fetch', e => {
   // Imágenes (las plantillas se pueden reemplazar): primero el servidor (así se ve la plantilla nueva),
   // y si no hay internet, la última copia guardada. La página las pide con ?v=<hora>; aquí se guardan
   // por su ruta (sin el parámetro) para que sirvan sin internet y no se acumulen copias.
-  if (url.pathname.startsWith('/img/')) {
+  if (url.pathname.startsWith('/img/') || url.pathname.startsWith('/plantilla-oficial/')) {
     const clave = new Request(url.origin + url.pathname);
     e.respondWith(
       fetch(req).then(res => {

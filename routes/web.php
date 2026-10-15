@@ -39,6 +39,10 @@ Route::get('/api/sica/orientadores', function () {
         ->values();
 })->middleware('throttle:30,1')->name('sica.orientadores');
 
+// Plantilla oficial guardada en la base de datos (imagen, igual que las de public/img)
+Route::get('/plantilla-oficial/{turno}/{lado}', [ControlEscolarController::class, 'verPlantillaOficial'])
+    ->name('sica.plantilla.ver');
+
 // ===== Requieren sesión iniciada =====
 Route::middleware('auth')->group(function () {
 
@@ -64,6 +68,10 @@ Route::middleware('auth')->group(function () {
         ->whereIn('lado', ['frente', 'reverso'])
         ->middleware('sica:control')
         ->name('sica.plantilla');
+
+    Route::delete('/api/sica/plantilla-oficial/{turno}/{lado}', [ControlEscolarController::class, 'borrarPlantillaOficial'])
+        ->middleware('sica:control')
+        ->name('sica.plantilla.borrar');
 
     // Contraseñas: solo Control Escolar (cambiar la de cada rol y poner una propia a cada orientador)
     Route::middleware(['sica:control', 'throttle:20,1,claves'])->prefix('/api/sica/claves')->group(function () {

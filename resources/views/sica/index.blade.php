@@ -395,16 +395,20 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  </div>
  </div>
- <!-- SOLO CONTROL ESCOLAR: respaldo para pasar los datos de un equipo/servidor a otro sin volver a subir las listas -->
+  <!-- SOLO CONTROL ESCOLAR: los datos viven en el servidor (Railway); aquí solo se muestra el estado -->
  <div id="bloque-respaldo-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020">Respaldo de datos</h6>
- <p class="text-muted small mb-3"><b>Descargar respaldo</b> guarda en un archivo todo lo que hay en este equipo (orientadores, grupos, horarios, alumnos y asistencias). <b>Cargar respaldo</b> lo sube al servidor desde el que estás usando el sistema: así pasas tus datos a Railway sin volver a subir las listas.</p>
- <div class="row g-3 align-items-end mb-2">
+ <h6 class="fw-bold mb-2" style="color:#800020">Datos en el servidor</h6>
+ <p class="text-muted small mb-2">Todo lo que subes o cambias (orientadores, grupos, horarios, alumnos, asistencias y plantillas) se guarda <b>automáticamente en el servidor</b>. No hace falta descargar respaldos: los orientadores solo eligen su nombre y escanean.</p>
+ <div id="estado-datos" class="small fw-semibold text-muted">Revisando…</div>
+ <details class="mt-3">
+ <summary class="small text-muted" style="cursor:pointer">Migración única desde otro equipo (solo si tienes un archivo de respaldo antiguo)</summary>
+ <div class="row g-3 align-items-end mt-1 mb-2">
  <div class="col-md-4"><button type="button" onclick="descargarRespaldo()" class="btn btn-outline-dark btn-sm w-100 py-2 fw-semibold">Descargar respaldo</button></div>
  <div class="col-md-5"><input type="file" id="archivo-respaldo" class="form-control form-control-sm" accept=".json,application/json"></div>
  <div class="col-md-3"><button type="button" onclick="cargarRespaldo()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Cargar respaldo</button></div>
  </div>
  <div id="estado-respaldo" class="small"></div>
+ </details>
  </div>
  <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores (con su grado, grupo y turno) -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
@@ -843,6 +847,31 @@ function fusionarServidor(s) {
  if (s.permisos) db.permisos = s.permisos;
  localStorage.setItem(LS, JSON.stringify(db));
 }
+/* Control Escolar: lo que tenga este equipo y aún no esté en el servidor se sube SOLO (sin respaldos manuales). */
+let _autoSubiendo = false;
+function pintarEstadoDatos(texto, ok) {
+ $('#estado-datos').removeClass('text-muted text-success text-danger').addClass(ok === false ? 'text-danger' : (ok ? 'text-success' : 'text-muted')).text(texto);
+}
+function autoSubirPendientes() {
+ if (rolActivo !== 'control' || ES_MOVIL) return;
+ const faltan = db.alumnos.filter(a => a.curp && !a.enServidor).length;
+ if (!faltan) {
+  pintarEstadoDatos('✔ Todo guardado en el servidor: ' + db.orientadores.length + ' orientador(es) y ' + db.alumnos.length + ' alumno(s).', true);
+  return;
+ }
+ if (_autoSubiendo) return;
+ _autoSubiendo = true;
+ pintarEstadoDatos('Subiendo ' + faltan + ' alumno(s) al servidor…');
+ fetchT('/api/sica/sync', {
+  method: 'POST',
+  headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+  body: JSON.stringify({accion: 'guardar_todo', datos: db})
+ }, 120000).then(r => {
+  if (r.status === 419) return refrescarCsrf();
+  if (r.ok) localStorage.removeItem(PEND_TODO); else pintarEstadoDatos('⚠ No se pudo subir al servidor; se reintenta solo.', false);
+ }).catch(() => pintarEstadoDatos('⚠ Sin conexión con el servidor; se reintenta solo.', false))
+ .then(() => { _autoSubiendo = false; });
+}
 /* Pide un token CSRF nuevo (cuando la sesión venció, el anterior ya no sirve) */
 function refrescarCsrf() {
  return fetchT('/auth/me', {headers:{'Accept':'application/json'}}, 8000)
@@ -892,6 +921,7 @@ function descargarEstadoServidor() {
   .then(s => {
    if (!s) return;
    fusionarServidor(s);
+   autoSubirPendientes();
    if (orientadorActivo) {
     orientadorActivo = db.orientadores.find(o => o.id === orientadorActivo.id) || orientadorActivo;
     const gruposAntes = JSON.stringify(gruposDelOrientador);
@@ -2229,20 +2259,20 @@ let plantillasPedidas = false;
 function cargarPlantillasDefault() {
  Object.keys(ARCHIVOS_PLANTILLA).forEach(turno => {
   ['frente','reverso'].forEach(lado => {
-   const lista = ARCHIVOS_PLANTILLA[turno][lado];
+   // Primero la que Control Escolar subió (guardada en la base de datos); si no hay, la original de public/img
+   const lista = ['/plantilla-oficial/' + turno + '/' + lado].concat(ARCHIVOS_PLANTILLA[turno][lado]);
    const intentar = i => {
     if (i >= lista.length) { console.warn('No se encontró la plantilla ' + turno + ' ' + lado + ' en public/img'); return; }
     const img = new Image();
     img.onload = () => {
      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
      c.getContext('2d').drawImage(img, 0, 0);
-     const propia = plantillaOficial[turno] && plantillaOficial[turno][lado];
-     plantillasDefault[turno][lado] = (propia && propia.img) || c.toDataURL('image/png');
+     plantillasDefault[turno][lado] = c.toDataURL('image/png');
      refrescarPreviewPlantillaOficial();
      if (idEditando) actualizarVistaPreviaCredencial();
     };
     img.onerror = () => intentar(i + 1);
-    img.src = BASE_IMG + lista[i] + '?v=' + Date.now();
+    img.src = (lista[i].charAt(0) === '/' ? lista[i] : BASE_IMG + lista[i]) + '?v=' + Date.now();
    };
    intentar(0);
   });
@@ -2325,12 +2355,13 @@ function restaurarPlantillaOficial() {
  if (rolActivo !== 'control') return;
  const t = turnoCred || 'Matutino';
  if (!confirm('¿Volver a la plantilla original del turno ' + t + '?')) return;
+ ['frente','reverso'].forEach(l => fetch('/api/sica/plantilla-oficial/' + t + '/' + l, {method:'DELETE', headers:{'Accept':'application/json','X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''}}).catch(() => {}));
  delete plantillaOficial[t];
  try { localStorage.setItem(LS_PL, JSON.stringify(plantillaOficial)); } catch (e) {}
  plantillasDefault[t] = {frente:null, reverso:null};
  cargarPlantillasDefault(); // vuelve a leer de /public/img
  setTimeout(refrescarPreviewPlantillaOficial, 800);
- $('#resumen-plantilla-oficial').removeClass('text-danger').addClass('text-success').text('Se restauró la plantilla original del turno ' + t + ' en este navegador.');
+ $('#resumen-plantilla-oficial').removeClass('text-danger').addClass('text-success').text('Se restauró la plantilla original del turno ' + t + ' en el servidor.');
 }
 /* ============ PORTAL DEL ALUMNO / CREDENCIALES ============ */
 const qrImg = curp => new QRious({value:curp, size:220}).toDataURL();
