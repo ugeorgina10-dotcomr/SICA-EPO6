@@ -328,8 +328,9 @@ class ControlEscolarController extends Controller
             [$grado, , $nombre, $turno] = $this->datosDeClave($clave);
 
             $grupo = Grupo::firstOrNew(['grado' => $grado, 'nombre' => $nombre, 'turno' => $turno]);
-            $grupo->hora_entrada = $h['entrada'] ?? null;
-            $grupo->hora_salida = $h['salida'] ?? null;
+            // Un grupo puede tener orientador sin horario todavía: la hora vacía se guarda como NULL
+            $grupo->hora_entrada = !empty($h['entrada']) ? $h['entrada'] : null;
+            $grupo->hora_salida = !empty($h['salida']) ? $h['salida'] : null;
             $grupo->orientador_id = (!empty($h['orientadorId']) && isset($mapaOrientadores[$h['orientadorId']]))
                 ? $mapaOrientadores[$h['orientadorId']]
                 : null;
