@@ -6,8 +6,14 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="theme-color" content="#800020">
 <title>SICA-EPO6 | Sistema de Identificación y Control de Acceso</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fontawesome/6.4.0/css/all.min.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SICA-EPO6">
+<link rel="apple-touch-icon" href="{{ asset('img/logo6.png') }}">
+{{-- Librerías servidas desde public/vendor (sin CDN): así el sistema abre aunque no haya internet --}}
+<link href="{{ asset('vendor/bootstrap.min.css') }}" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('vendor/fontawesome/css/all.min.css') }}">
 <style>
 body{background:#f4f6f9;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#333;margin:0}
 /* Fondo epo6.png: public/img/epo6.png. Se ve a partir del login, con brillo y color originales. */
@@ -586,17 +592,17 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
 </div>
 <div id="canvas-temporal" style="position:absolute;left:-9999px;top:-9999px;"></div>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="{{ asset('vendor/jquery.min.js') }}"></script>
+<script src="{{ asset('vendor/html5-qrcode.min.js') }}"></script>
+<script src="{{ asset('vendor/qrious.min.js') }}"></script>
+<script src="{{ asset('vendor/xlsx.full.min.js') }}"></script>
+<script src="{{ asset('vendor/jspdf.umd.min.js') }}"></script>
+<script src="{{ asset('vendor/jspdf.plugin.autotable.min.js') }}"></script>
+<script src="{{ asset('vendor/chart.umd.min.js') }}"></script>
+<script src="{{ asset('vendor/pdf.min.js') }}"></script>
 <script>
 if (typeof pdfjsLib !== 'undefined') {
- pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+ pdfjsLib.GlobalWorkerOptions.workerSrc = "{{ asset('vendor/pdf.worker.min.js') }}";
 }
 </script>
 <script>
@@ -659,6 +665,7 @@ function avisoPermiso(mensaje) {
  _ultimoAvisoPermiso = Date.now();
  alert(mensaje || 'No tienes permiso para realizar esta acción.');
 }
+const PEND_TODO = 'sica_epo6_pend_todo';   // marca: hay cambios guardados solo en este equipo (se hicieron sin internet)
 function sincronizarConServidor(accion, datos, reintento) {
  try {
   fetch('/api/sica/sync', {
@@ -670,7 +677,14 @@ function sincronizarConServidor(accion, datos, reintento) {
    if (r.status === 419 && !reintento) return refrescarCsrf().then(() => sincronizarConServidor(accion, datos, true));
    if (r.status === 401) { sesionExpirada(); return; }
    if (r.status === 403) return r.json().then(d => avisoPermiso(d && d.mensaje)).catch(() => avisoPermiso());
-  }).catch(() => { /* sin conexión: se ignora, localStorage sigue funcionando */ });
+   if (accion === 'guardar_todo') {
+    if (r.ok) localStorage.removeItem(PEND_TODO);
+    else if (r.status >= 500) localStorage.setItem(PEND_TODO, '1');
+   }
+  }).catch(() => {
+   /* sin conexión: localStorage sigue funcionando y se recuerda que falta enviar los cambios */
+   if (accion === 'guardar_todo') localStorage.setItem(PEND_TODO, '1');
+  });
  } catch (err) { /* entorno sin fetch: se ignora */ }
 }
 /* Mezcla el estado del servidor con el local sin perder entradas/salidas ya registradas.
@@ -730,6 +744,19 @@ function sesionExpirada() {
 }
 /* Descarga el estado del servidor (listas, CURPs, horarios, asistencias de todos los dispositivos) */
 function cargarDesdeServidor() {
+ // Si se hicieron cambios sin internet, primero se envían; así la descarga no los pisa con datos viejos del servidor
+ if (!ES_MOVIL && rolActivo && localStorage.getItem(PEND_TODO)) {
+  return fetch('/api/sica/sync', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
+   body: JSON.stringify({ accion: 'guardar_todo', datos: db })
+  }).then(r => { if (r.ok) localStorage.removeItem(PEND_TODO); else if (r.status === 401) sesionExpirada(); })
+  .catch(() => {})
+  .then(() => localStorage.getItem(PEND_TODO) ? null : descargarEstadoServidor());
+ }
+ return descargarEstadoServidor();
+}
+function descargarEstadoServidor() {
  return fetch('/api/sica/estado', {headers:{'Accept':'application/json'}})
   .then(r => { if (r.status === 401) { sesionExpirada(); return null; } return r.ok ? r.json() : null; })
   .then(s => {
@@ -1014,7 +1041,7 @@ function intentarEntrar() {
  alert('Esa cuenta no corresponde al rol seleccionado.');
  return;
  }
- if (orientadorActivo) sessionStorage.setItem('sica_orientador', orientadorActivo.id);   // para recordar quién eres si recargas la página
+ if (orientadorActivo) localStorage.setItem('sica_orientador', orientadorActivo.id);   // para recordar quién eres si recargas la página
  $('#input-clave').val('').attr('type','password');
  $('#ojo-abierto').removeClass('d-none'); $('#ojo-cerrado').addClass('d-none');
  cargarDesdeServidor().then(() => {
@@ -1061,7 +1088,9 @@ function mostrarSeccion(id) {
 }
 function cerrarSesion() {
  Object.keys(scanners).forEach(detener);
- sessionStorage.removeItem('sica_orientador');
+ // El service worker guarda la página de inicio para abrir sin internet: al cerrar sesión se borra esa copia
+ try { if (navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('limpiar-paginas'); } catch (e) {}
+ localStorage.removeItem('sica_orientador');
  orientadorActivo = null;
  rolActivo = null;
  document.body.classList.remove('modo-movil');
@@ -1451,6 +1480,73 @@ function confirmarOlvido(reintento) {
  })
  .catch(() => { btn.prop('disabled', false); abrirModalCuenta('info', 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.'); });
 }
+/* ============ COLA DE ESCANEOS (funciona sin internet) ============
+ Cada escaneo se guarda primero en este equipo y se envía al servidor en cuanto hay conexión.
+ Un escaneo solo sale de la cola cuando el servidor confirma que lo guardó: si no hay internet
+ se queda esperando (aunque se cierre la página o el navegador) y se reintenta solo. */
+const LS_COLA = 'sica_epo6_cola_v1';
+let colaEscaneos = [];
+try { colaEscaneos = JSON.parse(localStorage.getItem(LS_COLA) || '[]'); } catch (e) { colaEscaneos = []; }
+if (!Array.isArray(colaEscaneos)) colaEscaneos = [];
+let _vaciandoCola = false;
+function guardarCola() {
+ try { localStorage.setItem(LS_COLA, JSON.stringify(colaEscaneos)); } catch (e) {}
+ pintarIndicadorCola();
+}
+function pintarIndicadorCola() {
+ let el = document.getElementById('indicador-cola');
+ if (!el) {
+  if (!document.body) return;
+  el = document.createElement('div'); el.id = 'indicador-cola';
+  el.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:2000;padding:6px 14px;border-radius:20px;font-size:.8rem;font-weight:600;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);display:none;pointer-events:none';
+  document.body.appendChild(el);
+ }
+ const n = colaEscaneos.length, sinRed = navigator.onLine === false;
+ if (!n && !sinRed) { el.style.display = 'none'; return; }
+ el.style.background = sinRed ? '#b45309' : '#800020';
+ el.textContent = (sinRed ? 'Sin conexión' : 'Enviando') + (n ? ' · ' + n + (n === 1 ? ' escaneo pendiente' : ' escaneos pendientes') : '');
+ el.style.display = 'block';
+}
+function encolarEscaneo(curp, modo, fecha, hora) {
+ colaEscaneos.push({id: generarId(), curp: curp, modo: modo, fecha: fecha, hora: hora, ts: Date.now(), diferido: false});
+ guardarCola();
+ vaciarCola();
+}
+function vaciarCola() {
+ if (_vaciandoCola || !colaEscaneos.length) return;
+ _vaciandoCola = true;
+ const terminar = huboExito => {
+  _vaciandoCola = false;
+  guardarCola();
+  if (huboExito) cargarDesdeServidor();   // trae lo que escanearon los demás dispositivos
+ };
+ const enviar = (reintentoCsrf, huboExito) => {
+  const it = colaEscaneos[0];
+  if (!it) return terminar(huboExito);
+  // Si el escaneo ya esperó (sin internet o en cola), el servidor usa la hora en que se escaneó de verdad
+  const diferido = !!it.diferido || (Date.now() - (it.ts || 0) > 60000);
+  fetch('/api/sica/sync', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
+   body: JSON.stringify({ accion: 'registrar_asistencia', datos: {curp: it.curp, modo: it.modo, fecha: it.fecha, hora: it.hora, diferido: diferido} })
+  }).then(r => {
+   if (r.status === 419 && !reintentoCsrf) return refrescarCsrf().then(() => enviar(true, huboExito));
+   if (r.status === 401) { terminar(huboExito); sesionExpirada(); return; }   // la cola se conserva hasta volver a iniciar sesión
+   if (r.ok) { colaEscaneos.shift(); guardarCola(); return enviar(false, true); }
+   if (r.status >= 500 || r.status === 419 || r.status === 429) { it.diferido = true; return terminar(huboExito); }
+   // 403 / 404 / 422: el servidor lo rechazó de forma definitiva -> se descarta para no atorar la cola
+   colaEscaneos.shift(); guardarCola();
+   return r.json().catch(() => ({})).then(d => {
+    avisoPermiso('Un escaneo pendiente (' + it.curp + ') fue rechazado por el servidor: ' + ((d && d.mensaje) || 'error ' + r.status));
+    return enviar(false, huboExito);
+   });
+  }).catch(() => { it.diferido = true; terminar(huboExito); });   // sin conexión: se queda en la cola
+ };
+ enviar(false, false);
+}
+window.addEventListener('online', () => { pintarIndicadorCola(); if (rolActivo) vaciarCola(); });
+window.addEventListener('offline', pintarIndicadorCola);
+const etiquetaGrupo = x => (x && x.grado ? x.grado + '° grado, grupo ' + x.grupo + ' (' + x.turno + ')' : 'grupo sin asignar');
 /* ============ ESCÁNER QR (cámara) ============ */
 function iniciarScanner(el, modoFn) {
  if (scanners[el]) return;
@@ -1493,9 +1589,15 @@ function detener(el) {
 function procesarQR(curp, modo, el) {
  if (ultimo.t === curp && Date.now() - ultimo.ts < 4000) return;
  ultimo = {t:curp, ts:Date.now()};
+ const mostrar = r => {
+  $('#res-' + el).removeClass('text-success text-danger').addClass(r.ok ? 'text-success' : 'text-danger').text(r.msg);
+  if (navigator.vibrate) navigator.vibrate(r.ok ? 150 : [100,60,100]);
+ };
  const r = registrarPorCurp(curp, modo);
- $('#res-' + el).removeClass('text-success text-danger').addClass(r.ok ? 'text-success' : 'text-danger').text(r.msg);
- if (navigator.vibrate) navigator.vibrate(r.ok ? 150 : [100,60,100]);
+ if (r && typeof r.then === 'function') {   // alumno que este equipo aún no tiene: lo busca el servidor
+  $('#res-' + el).removeClass('text-success text-danger').text('Buscando alumno…');
+  r.then(mostrar);
+ } else mostrar(r);
 }
 function aplicarRegistro(a, modo) {
  if (!a) return {ok:false, msg:'Alumno no encontrado'};
@@ -1508,15 +1610,38 @@ function aplicarRegistro(a, modo) {
  if (r.salida) return {ok:false, msg:a.nombre + ': la salida ya estaba registrada (' + r.salida + ')'};
  r.salida = horaAhora();
  }
- // Cada escaneo se envía solo al servidor para que aparezca en la computadora del orientador
- sincronizarConServidor('registrar_asistencia', {curp: a.curp, modo: modo, fecha: f, hora: horaAhora()});
+ // Cada escaneo entra a la cola: se envía al servidor ya (o en cuanto vuelva el internet) y aparece en todos los equipos
+ if (a.curp) encolarEscaneo(a.curp, modo, f, horaAhora());
  save(); renderTabla();
- return {ok:true, msg:'✔ ' + modo + ' registrada: ' + a.nombre + ' (' + horaAhora() + ')'};
+ // El alumno se registra en SU grupo (el de la lista), sea o no del orientador que escanea
+ return {ok:true, msg:'✔ ' + modo + ' registrada: ' + a.nombre + ' — ' + etiquetaGrupo(a) + ' (' + horaAhora() + ')' +
+  (navigator.onLine === false ? ' · guardada sin internet, se enviará al reconectar' : '')};
 }
 function registrarPorCurp(curp, modo) {
  const a = db.alumnos.find(x => x.curp && x.curp === curp);
- if (!a) return {ok:false, msg:'QR no reconocido: ' + curp};
+ if (!a) return registrarDesconocido(curp, modo);
  return aplicarRegistro(a, modo);
+}
+/* El QR no está en la lista de este equipo (p. ej. Control Escolar lo dio de alta hace un momento):
+   se le pregunta al servidor, que busca al alumno por CURP en TODOS los grupos y lo registra en el suyo. */
+function registrarDesconocido(curp, modo) {
+ if (navigator.onLine === false) return {ok:false, msg:'QR no reconocido: ' + curp + ' (sin internet: no está en la lista de este equipo)'};
+ return fetch('/api/sica/sync', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
+  body: JSON.stringify({ accion: 'registrar_asistencia', datos: {curp: curp, modo: modo} })
+ }).then(r => r.json().catch(() => ({})).then(d => {
+  if (r.ok && d && d.ok) {
+   cargarDesdeServidor();   // este equipo descarga al alumno nuevo
+   const al = d.alumno || {};
+   return {ok:true, msg:'✔ ' + modo + ' registrada: ' + (al.nombre || curp) + ' — ' + etiquetaGrupo(al) + ' (' + (d.hora || horaAhora()) + ')'};
+  }
+  if (r.status === 404) return {ok:false, msg:'QR no reconocido: ' + curp};
+  if (r.status === 401) { sesionExpirada(); return {ok:false, msg:'Tu sesión expiró. Inicia sesión de nuevo.'}; }
+  if (r.status === 403) return {ok:false, msg:(d && d.mensaje) || 'No tienes permiso para registrar.'};
+  if (r.status === 419) { refrescarCsrf(); return {ok:false, msg:'Escanea de nuevo (se renovó la sesión).'}; }
+  return {ok:false, msg:'No se pudo registrar (error ' + r.status + '). Escanea de nuevo.'};
+ })).catch(() => ({ok:false, msg:'QR no reconocido: ' + curp + ' (sin conexión con el servidor)'}));
 }
 function registrarPorId(id, modo) { const a = db.alumnos.find(x => x.id === id); return aplicarRegistro(a, modo); }
 /* ============ LECTOR FIJO ============ */
@@ -2158,13 +2283,14 @@ function descargarCredencialIndividual() {
 function restaurarSesion(S) {
  $('#rol-select').val(S.rol);
  if (S.rol === 'orientador') {
- const id = sessionStorage.getItem('sica_orientador');
+ const id = localStorage.getItem('sica_orientador');
  orientadorActivo = db.orientadores.find(o => o.id === id) || null;
  if (!orientadorActivo) { mostrarSeccion('vista-login'); return; }   // sesión abierta pero sin nombre elegido: que lo elija
  }
  cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  if (!rolActivo) mostrarSeccion('vista-sistema');
+ vaciarCola();   // si quedaron escaneos pendientes de otra vez, se envían ahora
  });
 }
 // Computadoras: al volver con "atrás" o recargar, el navegador restaura el rol elegido SIN avisar a la página -> se vuelve a sincronizar el correo
@@ -2174,8 +2300,14 @@ $(function () {
  actualizarCredenciales();
  $('#calendario-orientador').val(hoy());
  if (window.SICA_SESION) restaurarSesion(window.SICA_SESION);   // solo pide datos al servidor si hay sesión (cero errores 401 al abrir)
- // Las computadoras ven los escaneos del teléfono en ~5 s; se pausa si la pestaña está oculta para no gastar datos ni servidor
- if (!ES_MOVIL) setInterval(() => { if (rolActivo && !document.hidden) cargarDesdeServidor(); }, 5000);
+ // Todos los equipos consultan al servidor (computadoras cada 5 s, teléfonos cada 10 s) para ver los mismos datos;
+ // se pausa si la pestaña está oculta para no gastar datos ni servidor
+ setInterval(() => { if (rolActivo && !document.hidden) cargarDesdeServidor(); }, ES_MOVIL ? 10000 : 5000);
+ // Reintenta enviar los escaneos que quedaron esperando por falta de internet
+ setInterval(() => { if (rolActivo && colaEscaneos.length) vaciarCola(); }, 15000);
+ pintarIndicadorCola();
+ // Service worker: permite abrir el sistema sin internet (solo funciona en https o localhost)
+ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
  document.addEventListener('visibilitychange', () => { if (!document.hidden && rolActivo) cargarDesdeServidor(); });
 });
 </script>

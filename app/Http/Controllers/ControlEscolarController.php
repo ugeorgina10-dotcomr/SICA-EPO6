@@ -9,6 +9,7 @@ use App\Models\Orientador;
 use App\Models\Permiso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ControlEscolarController extends Controller
@@ -68,15 +69,24 @@ class ControlEscolarController extends Controller
     }
 
     /**
-     * Lo que manda el teléfono en cada escaneo.
+     * Lo que manda el teléfono (o la computadora) en cada escaneo.
+     *
+     * El alumno se busca por CURP en TODA la base, así que cualquier orientador con permiso puede
+     * escanear a cualquier alumno: el registro queda en el grupo del alumno, no en el del que escanea.
+     *
      * La fecha y la hora las pone el SERVIDOR (zona America/Mexico_City): así nadie puede falsear
-     * una entrada cambiando la hora de su teléfono o editando la petición desde F12.
+     * una entrada cambiando la hora de su teléfono. ÚNICA excepción: un escaneo "diferido" (hecho sin
+     * internet y enviado después) trae la hora en que se escaneó; solo se acepta si no es futura
+     * (tolerancia de 2 minutos) y no tiene más de 3 días. Si no cumple, se usa la hora del servidor.
      */
     private function registrarAsistencia(array $d): JsonResponse
     {
         $v = validator($d, [
-            'curp' => 'required|string|max:30',
-            'modo' => 'nullable|in:Entrada,Salida',
+            'curp'     => 'required|string|max:30',
+            'modo'     => 'nullable|in:Entrada,Salida',
+            'diferido' => 'nullable|boolean',
+            'fecha'    => 'nullable|date_format:Y-m-d',
+            'hora'     => ['nullable', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
         ]);
 
         if ($v->fails()) {
@@ -88,24 +98,51 @@ class ControlEscolarController extends Controller
             return response()->json(['ok' => false, 'mensaje' => 'Alumno no encontrado'], 404);
         }
 
-        $ahora     = now();
+        $ahora = now();
+
+        if (!empty($d['diferido']) && !empty($d['fecha']) && !empty($d['hora'])) {
+            $escaneo = Carbon::createFromFormat('Y-m-d H:i', $d['fecha'] . ' ' . $d['hora'], config('app.timezone'));
+            $limiteFuturo = $ahora->copy()->addMinutes(2);
+            $limitePasado = $ahora->copy()->subDays(3)->startOfDay();
+
+            if ($escaneo->lessThanOrEqualTo($limiteFuturo) && $escaneo->greaterThanOrEqualTo($limitePasado)) {
+                $ahora = $escaneo;
+            }
+        }
+
         $hora      = $ahora->format('H:i');
         $fechaHora = $ahora->format('Y-m-d H:i:00');
+        $grupo     = Grupo::find($alumno->grupo_id);
 
         if (($d['modo'] ?? 'Entrada') === 'Salida') {
             $estatus = 'Salida';
         } else {
-            $grupo   = Grupo::find($alumno->grupo_id);
+            // El retardo se calcula con el horario del grupo DEL ALUMNO
             $estatus = ($grupo && $grupo->hora_entrada && $hora > substr($grupo->hora_entrada, 0, 5))
                 ? 'Retardo' : 'Asistencia';
         }
 
+        // updateOrCreate: si el teléfono reintenta el mismo escaneo no se duplica el registro
         Asistencia::updateOrCreate(
             ['alumno_id' => $alumno->id, 'fecha_hora' => $fechaHora],
             ['estatus' => $estatus]
         );
 
-        return response()->json(['ok' => true, 'fecha' => $ahora->format('Y-m-d'), 'hora' => $hora]);
+        $partes = $grupo ? explode(' ', $grupo->nombre) : [];
+
+        return response()->json([
+            'ok'      => true,
+            'fecha'   => $ahora->format('Y-m-d'),
+            'hora'    => $hora,
+            'estatus' => $estatus,
+            // A qué grupo se mandó el registro (para mostrarlo en el teléfono)
+            'alumno'  => [
+                'nombre' => $alumno->nombre,
+                'grado'  => $grupo ? (int) $grupo->grado : null,
+                'grupo'  => $grupo ? (int) end($partes) : null,
+                'turno'  => $grupo ? ($grupo->turno ?: 'Matutino') : null,
+            ],
+        ]);
     }
 
     /** Estado completo para que computadoras y teléfonos lo descarguen */
