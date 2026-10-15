@@ -395,6 +395,17 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  </div>
  </div>
+ <!-- SOLO CONTROL ESCOLAR: respaldo para pasar los datos de un equipo/servidor a otro sin volver a subir las listas -->
+ <div id="bloque-respaldo-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
+ <h6 class="fw-bold mb-2" style="color:#800020">Respaldo de datos</h6>
+ <p class="text-muted small mb-3"><b>Descargar respaldo</b> guarda en un archivo todo lo que hay en este equipo (orientadores, grupos, horarios, alumnos y asistencias). <b>Cargar respaldo</b> lo sube al servidor desde el que estás usando el sistema: así pasas tus datos a Railway sin volver a subir las listas.</p>
+ <div class="row g-3 align-items-end mb-2">
+ <div class="col-md-4"><button type="button" onclick="descargarRespaldo()" class="btn btn-outline-dark btn-sm w-100 py-2 fw-semibold">Descargar respaldo</button></div>
+ <div class="col-md-5"><input type="file" id="archivo-respaldo" class="form-control form-control-sm" accept=".json,application/json"></div>
+ <div class="col-md-3"><button type="button" onclick="cargarRespaldo()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Cargar respaldo</button></div>
+ </div>
+ <div id="estado-respaldo" class="small"></div>
+ </div>
  <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores (con su grado, grupo y turno) -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020">Subir Lista de Orientadores</h6>
@@ -672,6 +683,66 @@ Object.keys(db.horarios).forEach(k => {
  h.orientadorId = o.id;
  }
 });
+/* ---- Respaldo: pasar todos los datos de este navegador al servidor actual (p. ej. de localhost a Railway) ---- */
+function descargarRespaldo() {
+ if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede descargar el respaldo.'); return; }
+ const datos = JSON.stringify({sica_respaldo: 1, fecha: new Date().toISOString(), db: db});
+ const a = document.createElement('a');
+ a.href = URL.createObjectURL(new Blob([datos], {type: 'application/json'}));
+ a.download = 'respaldo_sica_' + new Date().toISOString().slice(0, 10) + '.json';
+ document.body.appendChild(a); a.click(); a.remove();
+ $('#estado-respaldo').removeClass('text-danger').addClass('text-success').text('✔ Respaldo descargado: ' + db.orientadores.length + ' orientador(es), ' + db.alumnos.length + ' alumno(s).');
+}
+function cargarRespaldo() {
+ if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede cargar el respaldo.'); return; }
+ const file = $('#archivo-respaldo')[0].files[0];
+ const caja = $('#estado-respaldo');
+ if (!file) { alert('Selecciona el archivo de respaldo (.json) que descargaste.'); return; }
+ const rd = new FileReader();
+ rd.onload = e => {
+  let r;
+  try { r = JSON.parse(e.target.result); } catch (x) { r = null; }
+  if (!r || !r.sica_respaldo || !r.db || !Array.isArray(r.db.alumnos) || !Array.isArray(r.db.orientadores)) { alert('Ese archivo no es un respaldo de SICA.'); return; }
+  const b = r.db;
+  if (!confirm('Se cargarán en el servidor: ' + b.orientadores.length + ' orientador(es), ' + Object.keys(b.horarios || {}).length + ' grupo(s) con horario y ' + b.alumnos.length + ' alumno(s). Lo que ya exista se conserva y se actualiza. ¿Continuar?')) return;
+  // Se mezcla con lo que ya hay (por nombre / CURP) y se conserva todo lo existente
+  const idPorNombre = {};
+  db.orientadores.forEach(o => { idPorNombre[norm(o.nombre)] = o.id; });
+  const idsNuevos = {};
+  b.orientadores.forEach(o => {
+   if (idPorNombre[norm(o.nombre)]) idsNuevos[o.id] = idPorNombre[norm(o.nombre)];
+   else { db.orientadores.push({id: o.id, nombre: o.nombre}); idPorNombre[norm(o.nombre)] = o.id; idsNuevos[o.id] = o.id; }
+  });
+  Object.entries(b.horarios || {}).forEach(([k, h]) => {
+   const actual = db.horarios[k] || {};
+   db.horarios[k] = {entrada: h.entrada || actual.entrada || '', salida: h.salida || actual.salida || '', orientadorId: (h.orientadorId && idsNuevos[h.orientadorId]) || actual.orientadorId || ''};
+  });
+  const clv = a => a.curp ? 'c:' + a.curp : 'n:' + a.grado + '|' + a.grupo + '|' + a.turno + '|' + norm(a.nombre);
+  const existentes = new Map(db.alumnos.map(a => [clv(a), a]));
+  b.alumnos.forEach(a => {
+   const ya = existentes.get(clv(a));
+   if (ya) { a.reg && Object.keys(a.reg).forEach(f => { ya.reg = ya.reg || {}; ya.reg[f] = Object.assign({}, a.reg[f], ya.reg[f] || {}); }); }
+   else { delete a.enServidor; db.alumnos.push(a); }
+  });
+  Object.assign(db.plantillas, b.plantillas || {});
+  localStorage.setItem(LS, JSON.stringify(db));
+  localStorage.setItem(PEND_TODO, '1');   // así ninguna descarga del servidor pisa lo que se está cargando
+  caja.removeClass('text-danger text-success').addClass('text-muted').text('Subiendo al servidor…');
+  fetchT('/api/sica/sync', {
+   method: 'POST',
+   headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+   body: JSON.stringify({accion: 'guardar_todo', datos: db})
+  }, 120000).then(r => {
+   if (r.status === 419) return refrescarCsrf().then(() => Promise.reject('csrf'));
+   if (!r.ok) return Promise.reject('error');
+   localStorage.removeItem(PEND_TODO);
+   caja.removeClass('text-muted text-danger').addClass('text-success').text('✔ Respaldo cargado en el servidor. Recarga la página para verlo.');
+   poblarSelectOrientadorHorario(); renderListaOrientadores(); renderTabla();
+   $('#archivo-respaldo').val('');
+  }).catch(m => caja.removeClass('text-muted text-success').addClass('text-danger').text('⚠ No se pudo subir al servidor' + (m === 'csrf' ? ' (la sesión se renovó, vuelve a intentarlo)' : '; revisa tu conexión y vuelve a intentarlo') + '. Tus datos siguen en este equipo.'));
+ };
+ rd.readAsText(file);
+}
 /* Guarda SOLO orientadores y grupos en el servidor (rápido, sin mandar alumnos ni plantillas) y avisa si quedó guardado.
    Es lo que hace que los orientadores aparezcan en la pantalla de inicio (lista de nombres) en cualquier equipo. */
 function guardarOrientadoresServidor() {
@@ -1842,6 +1913,7 @@ function configurarPanelOrientador() {
  const o = rolActivo === 'orientador';
  $('#bloque-camara-orientador').toggleClass('d-none', c);
  $('#bloque-orientadores-control').toggleClass('d-none', !c);
+ $('#bloque-respaldo-control').toggleClass('d-none', !c);
  $('#bloque-listas-orientador').toggleClass('d-none', !c);
  $('#bloque-horario-control').toggleClass('d-none', !c);
  $('#bloque-visualizar-grupo').toggleClass('d-none', o);
