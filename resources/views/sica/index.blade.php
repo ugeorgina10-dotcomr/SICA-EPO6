@@ -614,17 +614,30 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </div>
 <div id="canvas-temporal" style="position:absolute;left:-9999px;top:-9999px;"></div>
 <script src="{{ asset('vendor/jquery.min.js') }}"></script>
-<script src="{{ asset('vendor/html5-qrcode.min.js') }}"></script>
-<script src="{{ asset('vendor/qrious.min.js') }}"></script>
-<script src="{{ asset('vendor/xlsx.full.min.js') }}"></script>
-<script src="{{ asset('vendor/jspdf.umd.min.js') }}"></script>
-<script src="{{ asset('vendor/jspdf.plugin.autotable.min.js') }}"></script>
-<script src="{{ asset('vendor/chart.umd.min.js') }}"></script>
-<script src="{{ asset('vendor/pdf.min.js') }}"></script>
 <script>
-if (typeof pdfjsLib !== 'undefined') {
- pdfjsLib.GlobalWorkerOptions.workerSrc = "{{ asset('vendor/pdf.worker.min.js') }}";
-}
+/* Librerías pesadas: se cargan en segundo plano para que la pantalla aparezca de inmediato (el service worker las guarda,
+   así que desde la segunda visita salen del equipo). Lo que tarda en estar listo se avisa con libsOk(). */
+(function(){
+ const base = "{{ asset('vendor') }}/";
+ const grupos = [
+  ['html5-qrcode.min.js', 'qrious.min.js', 'chart.umd.min.js'],       // escáner, QR y gráficas
+  ['xlsx.full.min.js', 'jspdf.umd.min.js', 'pdf.min.js'],             // Excel, PDF y lector de PDF
+  ['jspdf.plugin.autotable.min.js']                                   // depende de jsPDF
+ ];
+ const cargar = src => new Promise(ok => {
+  const s = document.createElement('script');
+  s.src = base + src; s.onload = s.onerror = () => ok();
+  document.head.appendChild(s);
+ });
+ window.SICA_LIBS_LISTAS = grupos.reduce((p, g) => p.then(() => Promise.all(g.map(cargar))), Promise.resolve()).then(() => {
+  if (window.Chart)   if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+ });
+ window.libsOk = function (global) {
+  if (typeof window[global] !== 'undefined') return true;
+  alert('Todavía se está cargando una herramienta del sistema. Espera unos segundos e inténtalo de nuevo.');
+  return false;
+ };
+})();
 </script>
 <script>
 /* Lo incrusta el servidor al abrir la página: quién tiene sesión y la lista de nombres de orientadores.
@@ -987,6 +1000,7 @@ function leerFilasDesdeArchivo(file, callback, onError) {
  };
  rd.readAsArrayBuffer(file);
  } else {
+ if (!libsOk('XLSX')) return;
  const rd = new FileReader();
  rd.onload = e => {
  const wb = XLSX.read(e.target.result, {type:'array'});
@@ -1737,7 +1751,10 @@ const etiquetaGrupo = x => (x && x.grado ? x.grado + '° grado, grupo ' + x.grup
 /* ============ ESCÁNER QR (cámara) ============ */
 function iniciarScanner(el, modoFn) {
  if (scanners[el]) return;
- if (typeof Html5Qrcode === 'undefined') { alert('No se cargó la librería del escáner. Revisa tu conexión a internet.'); return; }
+ if (typeof Html5Qrcode === 'undefined') {
+  window.SICA_LIBS_LISTAS.then(() => { if (typeof Html5Qrcode === 'undefined') alert('No se cargó la librería del escáner. Revisa tu conexión a internet.'); else iniciarScanner(el, modoFn); });
+  return;
+ }
  const s = new Html5Qrcode(el); scanners[el] = s;
  $('#' + el).siblings('.cam-ph').hide();
  // Teléfono: cámara trasera ('environment'). Computadora: la que haya ('user').
@@ -1953,6 +1970,7 @@ function subirListaCredencial() {
  const file = $('#input-subir-lista-credencial')[0].files[0];
  if (!file) { alert('Selecciona un archivo con CURP y nombre.'); return; }
  if (!/\.(xlsx|xls|csv)$/i.test(file.name)) { alert('Para cargar los alumnos automáticamente usa un archivo Excel (.xlsx/.xls) o .csv.'); return; }
+ if (!libsOk('XLSX')) return;
  const modo = $('#orden-nombre-cred').val();
  const rd = new FileReader();
  rd.onload = e => {
@@ -1988,6 +2006,7 @@ function subirHorarios() {
  if (!permisoPermite()) return;
  const file = $('#archivo-horarios')[0].files[0];
  if (!file) { alert('Selecciona un archivo de horarios.'); return; }
+ if (!libsOk('XLSX')) return;
  const rd = new FileReader();
  rd.onload = e => {
  const wb = XLSX.read(e.target.result, {type:'array'});
@@ -2015,6 +2034,7 @@ function subirHorarios() {
 /* Descargas (Excel / PDF reales) */
 function descargar(nombre, filas, formato, titulo) {
  if (!filas.length) { alert('No hay datos para descargar.'); return; }
+ if (!libsOk(formato === 'Excel' ? 'XLSX' : 'jspdf')) return;
  if (formato === 'Excel') {
  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas), 'Reporte'); XLSX.writeFile(wb, nombre + '.xlsx');
  } else {
@@ -2098,6 +2118,7 @@ function dibujarGraficaAsistencias(s) {
  {label:'Permanencias', data: s.map(x => x.Permanencias), backgroundColor:'#dc3545'}
  ]};
  const titulo = 'Estadísticas de asistencia - ' + tituloPeriodo($('#sel-periodo-stats').val() || 'hoy');
+ if (!libsOk('Chart')) return;
  if (chartAsistencias) { chartAsistencias.data = data; chartAsistencias.options.plugins.title.text = titulo; chartAsistencias.update(); return; }
  chartAsistencias = new Chart(ctx, { type: 'bar', data: data, options: {
  responsive:true, maintainAspectRatio:true,
@@ -2112,6 +2133,7 @@ function descargarGraficas(formato) {
  const s = statsGrados(periodo);
  const tp = tituloPeriodo(periodo);
  if (formato === 'Excel') { descargar('estadisticas_' + hoy(), s.map(x => ({Grado:x.Grado, Alumnos:x.Alumnos, Asistencias:x.Asistencias, '% Asistencias':x['% Asistencias'], Retardos:x.Retardos, '% Retardos':x['% Retardos'], Permanencias:x.Permanencias})), 'Excel', 'Estadísticas de asistencia - ' + tp); return; }
+ if (!libsOk('jspdf')) return;
  const d = new window.jspdf.jsPDF();
  d.setFontSize(14); d.text('Estadísticas de asistencia - ' + tp, 14, 15);
  let startY = 22;
@@ -2127,9 +2149,11 @@ function descargarGraficas(formato) {
  d.save('estadisticas_' + hoy() + '.pdf');
 }
 function descargarComparativaGradoPDF(grado) {
+ if (!libsOk('Chart')) return;
  const periodo = $('#sel-periodo-stats').val() || 'hoy';
  const datos = statsPorGrupo(grado, periodo);
  const tp = tituloPeriodo(periodo);
+ if (!libsOk('jspdf')) return;
  const d = new window.jspdf.jsPDF();
  d.setFontSize(14); d.text('Comparativa de asistencia - ' + nomGrado[grado] + ' grado - ' + tp, 14, 15);
  let y = 24, contadorEnPagina = 0;
@@ -2286,7 +2310,7 @@ function restaurarPlantillaOficial() {
  $('#resumen-plantilla-oficial').removeClass('text-danger').addClass('text-success').text('Se restauró la plantilla original del turno ' + t + ' en el servidor.');
 }
 /* ============ PORTAL DEL ALUMNO / CREDENCIALES ============ */
-const qrImg = curp => new QRious({value:curp, size:220}).toDataURL();
+const qrImg = curp => (typeof QRious === 'undefined') ? '' : new QRious({value:curp, size:220}).toDataURL();
 const alumnosCred = () => db.alumnos.filter(a => a.grado === credSel.grado && a.grupo === credSel.grupo && a.turno === turnoCred);
 /* CAMBIO: al elegir Matutino/Vespertino abajo, la etiqueta del turno y la
  vista previa (frente y reverso) de arriba cambian al mismo turno. */
@@ -2439,6 +2463,7 @@ function descargarCredencialesPDF() {
  const l = alumnosCred().filter(a => a.curp);
  const sinCurp = alumnosCred().length - l.length;
  if (!l.length) { alert('No hay alumnos con CURP asignado en este grupo. Sube primero la lista con CURP y nombre completo.'); return; }
+ if (!libsOk('jspdf')) return;
  const d = new window.jspdf.jsPDF();
  // Tamaño de cada credencial en mm, respetando la proporción real de tus plantillas
  // (797x541 el frente, 930x575 el reverso) para que no se vean estiradas.
@@ -2468,6 +2493,7 @@ function descargarCredencialIndividual() {
  const a = db.alumnos.find(x => x.id === idEditando);
  if (!a.curp) { alert('Este alumno aún no tiene CURP asignado. Sube su CURP desde "Subir lista de alumnos" antes de descargar su credencial.'); return; }
  generarImagenesCredencialPDF(a, (imgFrente, imgReverso) => {
+ if (!libsOk('jspdf')) return;
  const d = new window.jspdf.jsPDF();
  d.addImage(imgFrente, 'PNG', 10, 10, 95, 60);
  d.addImage(imgReverso, 'PNG', 10, 74, 95, 60);

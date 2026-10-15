@@ -11,6 +11,7 @@ use App\Models\Permiso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ControlEscolarController extends Controller
@@ -28,6 +29,15 @@ class ControlEscolarController extends Controller
 
         $esControl = $request->user()?->rol === 'control';
 
+        // Cualquier escritura invalida la huella: los demás equipos ven el cambio en su próxima consulta
+        $respuesta = $this->ejecutarAccion($validado, $esControl);
+        Cache::forget('sica.huella');
+
+        return $respuesta;
+    }
+
+    private function ejecutarAccion(array $validado, bool $esControl): JsonResponse
+    {
         return match ($validado['accion']) {
             'guardar_permisos'     => $this->guardarPermisos($validado['datos']),
             // Solo Control Escolar puede crear/cambiar alumnos, horarios, orientadores y plantillas.
@@ -70,10 +80,14 @@ class ControlEscolarController extends Controller
         $a = Ajuste::find(self::clavePlantilla($turno, $lado));
         abort_unless($a && $a->valor, 404);
 
-        return response(base64_decode($a->valor), 200, [
+        $respuesta = response(base64_decode($a->valor), 200, [
             'Content-Type'  => 'image/png',
             'Cache-Control' => 'no-cache',
         ]);
+        $respuesta->setEtag(md5($a->valor));
+        $respuesta->isNotModified(request());   // 304 si el equipo ya tiene esta plantilla
+
+        return $respuesta;
     }
 
     /** Vuelve a la plantilla original (la de public/img) */
@@ -115,7 +129,7 @@ class ControlEscolarController extends Controller
             return response()->json(['ok' => false, 'mensaje' => 'Datos de escaneo inválidos'], 422);
         }
 
-        $alumno = Alumno::where('matricula', $d['curp'])->first();
+        $alumno = Alumno::select('id', 'nombre', 'grupo_id')->where('matricula', $d['curp'])->first();
         if (!$alumno) {
             return response()->json(['ok' => false, 'mensaje' => 'Alumno no encontrado'], 404);
         }
@@ -134,7 +148,7 @@ class ControlEscolarController extends Controller
 
         $hora      = $ahora->format('H:i');
         $fechaHora = $ahora->format('Y-m-d H:i:00');
-        $grupo     = Grupo::find($alumno->grupo_id);
+        $grupo     = Grupo::select('id', 'nombre', 'grado', 'turno', 'hora_entrada')->find($alumno->grupo_id);
 
         if (($d['modo'] ?? 'Entrada') === 'Salida') {
             $estatus = 'Salida';
@@ -167,20 +181,89 @@ class ControlEscolarController extends Controller
         ]);
     }
 
+    /** Nombres de orientadores para la pantalla de login (se recalcula solo si la tabla cambió) */
+    public static function orientadoresLogin(): array
+    {
+        $h = DB::table('orientadores')->selectRaw('COUNT(*) c, MAX(updated_at) u')->first();
+
+        return Cache::remember('sica.orientadores.' . md5(json_encode($h)), 600, fn () => DB::table('orientadores')
+            ->select('id', 'nombre')->orderBy('nombre')->get()
+            ->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])->values()->all());
+    }
+
+    /**
+     * Huella barata del estado: si no cambió nada, no se recalcula ni se arma el JSON.
+     * Son 5 consultas de agregado (usan índices); cubre altas, bajas y cambios.
+     */
+    private function huellaEstado(): string
+    {
+        return Cache::remember('sica.huella', 2, fn () => $this->calcularHuella());
+    }
+
+    private function calcularHuella(): string
+    {
+        $a  = DB::table('asistencias')->selectRaw('COUNT(*) c, MAX(id) i, MAX(updated_at) u')->first();
+        $al = DB::table('alumnos')->selectRaw('COUNT(*) c, MAX(updated_at) u')->first();
+        $g  = DB::table('grupos')->selectRaw('COUNT(*) c, MAX(updated_at) u')->first();
+        $o  = DB::table('orientadores')->selectRaw('COUNT(*) c, MAX(updated_at) u')->first();
+        $p  = DB::table('permisos')->selectRaw('COUNT(*) c, MAX(updated_at) u')->first();
+
+        return md5(json_encode([$a, $al, $g, $o, $p]));
+    }
+
     /** Estado completo para que computadoras y teléfonos lo descarguen */
     public function estado(Request $request): JsonResponse
     {
-        $grupos = Grupo::select('id', 'nombre', 'grado', 'turno', 'hora_entrada', 'hora_salida', 'orientador_id')->get()->keyBy('id');
-        $asist  = Asistencia::select('alumno_id', 'estatus', 'fecha_hora')->get()->groupBy('alumno_id');
+        $huella = $this->huellaEstado();
+        $etag   = '"' . $huella . '"';
 
-        // Clave de horario: "Turno-grado-grupo" (ej. "Vespertino-1-2")
+        // 304 inmediato: el navegador ya tiene la versión actual (sin leer asistencias ni armar JSON)
+        if ($request->header('If-None-Match') === $etag || $request->header('If-None-Match') === 'W/' . $etag) {
+            return response()->json(null, 304)->setEtag($huella);
+        }
+
+        $datos = Cache::remember('sica.estado.' . $huella, 300, fn () => $this->construirEstado());
+
+        $respuesta = response()->json($datos);
+        $respuesta->setEtag($huella);
+
+        return $respuesta;
+    }
+
+    private function construirEstado(): array
+    {
+        $grupos = DB::table('grupos')
+            ->select('id', 'nombre', 'grado', 'turno', 'hora_entrada', 'hora_salida', 'orientador_id')
+            ->get()->keyBy('id');
+
+        // Entrada (la más temprana) y salida (la más tardía) por alumno y día.
+        // Query builder + cursor: sin crear un modelo Eloquent por cada asistencia y sin cargar todo en memoria.
+        $regs = [];
+        foreach (DB::table('asistencias')->select('alumno_id', 'estatus', 'fecha_hora')->orderBy('alumno_id')->cursor() as $x) {
+            $f = substr((string) $x->fecha_hora, 0, 10);
+            $h = substr((string) $x->fecha_hora, 11, 5);
+            $r = &$regs[$x->alumno_id][$f];
+
+            if ($x->estatus === 'Salida') {
+                if (empty($r['salida']) || $h > $r['salida']) {
+                    $r['salida'] = $h;
+                }
+            } elseif (empty($r['entrada']) || $h < $r['entrada']) {
+                $r['entrada'] = $h;
+            }
+            unset($r);
+        }
+
         $horarios = [];
+        $info     = [];   // por grupo: [grado, grupo, turno] calculado una sola vez
         foreach ($grupos as $g) {
+            $partes = explode(' ', $g->nombre);
+            $turno  = $g->turno ?: 'Matutino';
+            $info[$g->id] = [(int) $g->grado, (int) end($partes), $turno];
+
             if (!$g->hora_entrada && !$g->hora_salida && !$g->orientador_id) {
                 continue;
             }
-            $partes = explode(' ', $g->nombre);
-            $turno  = $g->turno ?: 'Matutino';
             $horarios[$turno . '-' . $g->grado . '-' . end($partes)] = [
                 'entrada'      => $g->hora_entrada ? substr($g->hora_entrada, 0, 5) : '',
                 'salida'       => $g->hora_salida ? substr($g->hora_salida, 0, 5) : '',
@@ -189,57 +272,35 @@ class ControlEscolarController extends Controller
         }
 
         $alumnos = [];
-        foreach (Alumno::select('id', 'matricula', 'nombre', 'grupo_id')->get() as $a) {
-            $g = $grupos[$a->grupo_id] ?? null;
-            if (!$g) {
+        foreach (DB::table('alumnos')->select('id', 'matricula', 'nombre', 'grupo_id')->cursor() as $a) {
+            if (!isset($info[$a->grupo_id])) {
                 continue;
             }
+            [$grado, $grupo, $turno] = $info[$a->grupo_id];
 
-            $reg = [];
-            foreach ($asist->get($a->id, collect()) as $x) {
-                $f = substr((string) $x->fecha_hora, 0, 10);
-                $h = substr((string) $x->fecha_hora, 11, 5);
-                if ($x->estatus === 'Salida') {
-                    if (empty($reg[$f]['salida']) || $h > $reg[$f]['salida']) {
-                        $reg[$f]['salida'] = $h;
-                    }
-                } else {
-                    if (empty($reg[$f]['entrada']) || $h < $reg[$f]['entrada']) {
-                        $reg[$f]['entrada'] = $h;
-                    }
-                }
-            }
-
-            $partes = explode(' ', $g->nombre);
             $alumnos[] = [
                 'id'     => (string) $a->id,
                 'curp'   => $a->matricula,
                 'nombre' => $a->nombre,
-                'grado'  => (int) $g->grado,
-                'grupo'  => (int) end($partes),
-                'turno'  => $g->turno ?: 'Matutino',
-                'reg'    => (object) $reg,
+                'grado'  => $grado,
+                'grupo'  => $grupo,
+                'turno'  => $turno,
+                'reg'    => (object) ($regs[$a->id] ?? []),
             ];
         }
 
         $permisos = ['orientador' => 'editar', 'director' => 'ver', 'subdirector' => 'ver'];
-        foreach (Permiso::all() as $p) {
+        foreach (DB::table('permisos')->select('rol', 'tipo')->get() as $p) {
             $permisos[$p->rol] = $p->tipo;
         }
 
-        $datos = [
+        return [
             'alumnos'      => $alumnos,
             'horarios'     => (object) $horarios,
-            'orientadores' => Orientador::all()->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])->values(),
+            'orientadores' => DB::table('orientadores')->select('id', 'nombre')->get()
+                ->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])->values()->all(),
             'permisos'     => $permisos,
         ];
-
-        // ETag: si nada cambió desde la última descarga, responde 304 (sin cuerpo) y la pantalla se actualiza más rápido
-        $respuesta = response()->json($datos);
-        $respuesta->setEtag(md5($respuesta->getContent()));
-        $respuesta->isNotModified($request);
-
-        return $respuesta;
     }
 
     /** Elimina un alumno (por CURP) junto con todos sus registros de asistencia */
@@ -409,32 +470,40 @@ class ControlEscolarController extends Controller
     /** Alumnos y sus registros de entrada/salida por día */
     private function guardarAlumnos(array $alumnos): void
     {
+        // Una sola consulta por tabla (antes: varias por cada alumno)
+        $gruposCache = [];
+        $existentes  = Alumno::whereIn('matricula', collect($alumnos)->pluck('curp')->filter(fn ($c) => is_string($c) && $c !== '')->all())
+            ->get(['id', 'matricula', 'nombre', 'grupo_id'])->keyBy('matricula');
+
+        $pares = [];   // [alumno, grupo, reg] para guardar registros en lote
         foreach ($alumnos as $a) {
-            if (!is_array($a)) {
+            if (!is_array($a) || empty($a['curp']) || !is_string($a['curp'])) {
                 continue;
             }
 
-            $nombreGrupo = ((int) ($a['grado'] ?? 0)) . '° ' . ((int) ($a['grupo'] ?? 0));
+            $grado       = (int) ($a['grado'] ?? 0);
+            $nombreGrupo = $grado . '° ' . ((int) ($a['grupo'] ?? 0));
             $turno       = (($a['turno'] ?? '') === 'Vespertino') ? 'Vespertino' : 'Matutino';
+            $k           = $turno . '|' . $nombreGrupo;
 
-            // El grupo se identifica por grado + nombre + TURNO, así 1° 1 matutino y 1° 1 vespertino son distintos
-            $grupo = Grupo::firstOrCreate(
-                ['grado' => (int) ($a['grado'] ?? 0), 'nombre' => $nombreGrupo, 'turno' => $turno]
-            );
+            // El grupo se identifica por grado + nombre + TURNO; se busca/crea una sola vez por grupo
+            $gruposCache[$k] ??= Grupo::select('id', 'nombre', 'grado', 'turno', 'hora_entrada')
+                ->firstOrCreate(['grado' => $grado, 'nombre' => $nombreGrupo, 'turno' => $turno]);
+            $grupo  = $gruposCache[$k];
+            $nombre = mb_substr((string) ($a['nombre'] ?? ''), 0, 150);
 
-            // Tu tabla exige matrícula única y obligatoria: sin CURP el alumno
-            // todavía no se guarda en la BD (sigue viendo bien en el navegador).
-            if (empty($a['curp']) || !is_string($a['curp'])) {
-                continue;
+            $alumno = $existentes->get($a['curp']);
+            if (!$alumno) {
+                $alumno = Alumno::create(['matricula' => $a['curp'], 'nombre' => $nombre, 'grupo_id' => $grupo->id]);
+                $existentes->put($a['curp'], $alumno);
+            } elseif ($alumno->nombre !== $nombre || (int) $alumno->grupo_id !== (int) $grupo->id) {
+                $alumno->update(['nombre' => $nombre, 'grupo_id' => $grupo->id]);   // solo si algo cambió
             }
 
-            $alumno = Alumno::updateOrCreate(
-                ['matricula' => $a['curp']],
-                ['nombre' => mb_substr((string) ($a['nombre'] ?? ''), 0, 150), 'grupo_id' => $grupo->id]
-            );
-
-            $this->guardarRegistros($alumno, $grupo, $a['reg'] ?? []);
+            $pares[] = [$alumno, $grupo, $a['reg'] ?? []];
         }
+
+        $this->guardarRegistrosEnLote($pares);
     }
 
     /**
@@ -443,52 +512,90 @@ class ControlEscolarController extends Controller
      */
     private function guardarSoloAsistencias(array $alumnos): void
     {
+        $curps = collect($alumnos)->map(fn ($a) => is_array($a) ? ($a['curp'] ?? null) : null)
+            ->filter(fn ($c) => is_string($c) && $c !== '')->all();
+
+        $existentes = Alumno::whereIn('matricula', $curps)->get(['id', 'matricula', 'grupo_id'])->keyBy('matricula');
+        $grupos     = Grupo::select('id', 'hora_entrada')->whereIn('id', $existentes->pluck('grupo_id')->unique())->get()->keyBy('id');
+
+        $pares = [];
         foreach ($alumnos as $a) {
             if (!is_array($a) || empty($a['curp']) || !is_string($a['curp'])) {
                 continue;
             }
-
-            $alumno = Alumno::where('matricula', $a['curp'])->first();
-            if (!$alumno) {
-                continue;
+            $alumno = $existentes->get($a['curp']);
+            if ($alumno) {
+                $pares[] = [$alumno, $grupos->get($alumno->grupo_id), $a['reg'] ?? []];
             }
-
-            $this->guardarRegistros($alumno, Grupo::find($alumno->grupo_id), $a['reg'] ?? []);
         }
+
+        $this->guardarRegistrosEnLote($pares);
     }
 
-    /** Guarda entradas y salidas por fecha, ignorando fechas u horas con formato inválido */
-    private function guardarRegistros(Alumno $alumno, ?Grupo $grupo, mixed $reg): void
+    /**
+     * Guarda entradas y salidas por fecha, ignorando fechas u horas con formato inválido.
+     * Compara contra lo que ya hay en la BD (UNA consulta) y solo escribe lo nuevo o lo que cambió de estatus:
+     * el navegador reenvía todo el historial en cada sincronización y casi nunca hay nada distinto.
+     *
+     * @param array<int, array{0: Alumno, 1: ?Grupo, 2: mixed}> $pares
+     */
+    private function guardarRegistrosEnLote(array $pares): void
     {
-        if (!is_array($reg)) {
-            return;
-        }
-
         $esFecha = fn ($x) => is_string($x) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $x) === 1;
         $esHora  = fn ($x) => is_string($x) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $x) === 1;
 
-        foreach ($reg as $fecha => $r) {
-            if (!$esFecha($fecha) || !is_array($r)) {
+        // 1) Lo que el navegador quiere guardar: [alumno_id|fecha_hora => estatus]
+        $deseado = [];
+        foreach ($pares as [$alumno, $grupo, $reg]) {
+            if (!is_array($reg)) {
                 continue;
             }
+            $horaLimite = ($grupo && $grupo->hora_entrada) ? substr($grupo->hora_entrada, 0, 5) : null;
 
-            if (!empty($r['entrada']) && $esHora($r['entrada'])) {
-                $estatus = ($grupo && $grupo->hora_entrada && $r['entrada'] > substr($grupo->hora_entrada, 0, 5))
-                    ? 'Retardo'
-                    : 'Asistencia';
-
-                Asistencia::updateOrCreate(
-                    ['alumno_id' => $alumno->id, 'fecha_hora' => $fecha . ' ' . $r['entrada'] . ':00'],
-                    ['estatus' => $estatus]
-                );
+            foreach ($reg as $fecha => $r) {
+                if (!$esFecha($fecha) || !is_array($r)) {
+                    continue;
+                }
+                if (!empty($r['entrada']) && $esHora($r['entrada'])) {
+                    $deseado[$alumno->id . '|' . $fecha . ' ' . $r['entrada'] . ':00'] =
+                        ($horaLimite && $r['entrada'] > $horaLimite) ? 'Retardo' : 'Asistencia';
+                }
+                if (!empty($r['salida']) && $esHora($r['salida'])) {
+                    $deseado[$alumno->id . '|' . $fecha . ' ' . $r['salida'] . ':00'] = 'Salida';
+                }
             }
+        }
 
-            if (!empty($r['salida']) && $esHora($r['salida'])) {
-                Asistencia::updateOrCreate(
-                    ['alumno_id' => $alumno->id, 'fecha_hora' => $fecha . ' ' . $r['salida'] . ':00'],
-                    ['estatus' => 'Salida']
-                );
+        if (!$deseado) {
+            return;
+        }
+
+        // 2) Lo que ya existe para esos alumnos (una consulta, por bloques)
+        $ids   = array_values(array_unique(array_map(fn ($k) => (int) explode('|', $k)[0], array_keys($deseado))));
+        $hay   = [];
+        foreach (array_chunk($ids, 500) as $bloque) {
+            foreach (DB::table('asistencias')->whereIn('alumno_id', $bloque)->select('alumno_id', 'fecha_hora', 'estatus')->cursor() as $x) {
+                $hay[$x->alumno_id . '|' . substr((string) $x->fecha_hora, 0, 19)] = $x->estatus;
             }
+        }
+
+        // 3) Solo se inserta lo que falta; solo se actualiza lo que cambió de estatus
+        $ahora   = now();
+        $nuevos  = [];
+        foreach ($deseado as $clave => $estatus) {
+            [$alumnoId, $fechaHora] = explode('|', $clave, 2);
+
+            if (!array_key_exists($clave, $hay)) {
+                $nuevos[] = ['alumno_id' => (int) $alumnoId, 'estatus' => $estatus, 'fecha_hora' => $fechaHora,
+                             'created_at' => $ahora, 'updated_at' => $ahora];
+            } elseif ($hay[$clave] !== $estatus) {
+                Asistencia::where('alumno_id', $alumnoId)->where('fecha_hora', $fechaHora)
+                    ->update(['estatus' => $estatus]);
+            }
+        }
+
+        foreach (array_chunk($nuevos, 500) as $bloque) {
+            DB::table('asistencias')->insert($bloque);
         }
     }
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Control de Asistencias - SICA EPO6</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap.min.css') }}" rel="stylesheet">
 </head>
 <body class="bg-light">
     <div class="container py-5">
@@ -75,7 +75,7 @@
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{{ asset('vendor/jquery.min.js') }}"></script>
     <script>
         $('#form-registro').on('submit', function(e) {
             e.preventDefault();

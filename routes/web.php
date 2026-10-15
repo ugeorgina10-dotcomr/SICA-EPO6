@@ -3,7 +3,6 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClavesController;
 use App\Http\Controllers\ControlEscolarController;
-use App\Models\Orientador;
 use Illuminate\Support\Facades\Route;
 
 // ===== Públicas =====
@@ -15,9 +14,7 @@ Route::get('/', function () {
     return view('sica.index', [
         // Se incrusta en la página: así al abrir no hace falta pedir /auth/me ni /api/sica/orientadores
         'sesion' => $u ? ['rol' => $u->rol, 'nombre' => $u->name, 'email' => $u->email] : null,
-        'orientadoresLogin' => Orientador::orderBy('nombre')->get()
-            ->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])
-            ->values(),
+        'orientadoresLogin' => ControlEscolarController::orientadoresLogin(),
     ]);
 });
 
@@ -34,9 +31,7 @@ Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
 // Solo nombres de orientadores, para llenar la lista de la pantalla de login.
 // No incluye alumnos, CURP ni asistencias.
 Route::get('/api/sica/orientadores', function () {
-    return Orientador::orderBy('nombre')->get()
-        ->map(fn ($o) => ['id' => (string) $o->id, 'nombre' => $o->nombre])
-        ->values();
+    return ControlEscolarController::orientadoresLogin();
 })->middleware('throttle:30,1')->name('sica.orientadores');
 
 // Plantilla oficial guardada en la base de datos (imagen, igual que las de public/img)

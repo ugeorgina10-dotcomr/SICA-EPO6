@@ -1,6 +1,6 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
-    "preDeployCommand": ["php artisan migrate --force", "php artisan sica:crear-usuarios"]
+    "preDeployCommand": ["php artisan migrate --force", "php artisan sica:crear-usuarios", "php artisan optimize"]
   }
 }

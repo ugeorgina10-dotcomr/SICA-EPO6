@@ -6,7 +6,7 @@
     <title>Panel de Control Escolar - SICA-EPO6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js para las gráficas estadísticas comparativas -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ asset('vendor/chart.umd.min.js') }}"></script>
 </head>
 <body class="bg-slate-50 min-h-screen">
     <header class="bg-[#800020] text-white py-3 px-6 shadow-md flex justify-between items-center">

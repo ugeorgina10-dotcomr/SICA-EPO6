@@ -6,7 +6,7 @@
     <title>Lector Fijo - SICA-EPO6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Librería para lectura de códigos QR desde la cámara -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="{{ asset('vendor/html5-qrcode.min.js') }}" type="text/javascript"></script>
 </head>
 <body class="bg-slate-50 min-h-screen">
     <header class="bg-[#800020] text-white py-3 px-6 shadow-md flex justify-between items-center">
