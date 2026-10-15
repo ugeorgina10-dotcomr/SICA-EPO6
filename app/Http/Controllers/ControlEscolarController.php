@@ -236,18 +236,31 @@ class ControlEscolarController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** Elimina un orientador (por nombre) y deja sin orientador los grupos que tenía asignados */
+    /**
+     * Elimina un orientador de forma permanente: su registro (con contraseña, bloqueo, etc.) desaparece de la BD
+     * y los grupos que tenía quedan sin orientador. Se busca por id y, si no, por nombre.
+     */
     private function eliminarOrientador(array $d): JsonResponse
     {
-        $orientador = Orientador::where('nombre', $d['nombre'] ?? '')->first();
+        $nombre = trim((string) ($d['nombre'] ?? ''));
+        $orientador = null;
+
+        if (isset($d['id']) && ctype_digit((string) $d['id'])) {
+            $orientador = Orientador::find((int) $d['id']);
+        }
+        if (!$orientador && $nombre !== '') {
+            $orientador = Orientador::where('nombre', $nombre)->first()
+                ?? Orientador::whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($nombre)])->first();
+        }
 
         if ($orientador) {
             DB::transaction(function () use ($orientador) {
                 Grupo::where('orientador_id', $orientador->id)->update(['orientador_id' => null]);
-                $orientador->delete();
+                DB::table('orientadores')->where('id', $orientador->id)->delete();
             });
         }
 
+        // Si ya no existía en el servidor, también es correcto: el navegador lo quita de su lista
         return response()->json(['ok' => true]);
     }
 
