@@ -34,6 +34,7 @@ class ControlEscolarController extends Controller
             'guardar_todo'         => $this->guardarTodo($validado['datos'], !$esControl),
             'registrar_asistencia' => $this->registrarAsistencia($validado['datos']),
             'eliminar_alumno'      => $this->eliminarAlumno($validado['datos']),
+            'guardar_orientadores' => $this->guardarSoloOrientadores($validado['datos']),
             'eliminar_orientador'  => $this->eliminarOrientador($validado['datos']),
             default                => response()->json(['ok' => false, 'mensaje' => 'Acción no reconocida'], 400),
         };
@@ -280,16 +281,30 @@ class ControlEscolarController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /** Guarda solo orientadores y grupos (rápido): así aparecen en la pantalla de inicio aunque lo demás falle o tarde */
+    private function guardarSoloOrientadores(array $db): JsonResponse
+    {
+        DB::transaction(function () use ($db) {
+            $mapa = $this->guardarOrientadores($db['orientadores'] ?? []);
+            $this->guardarHorarios($db['horarios'] ?? [], $mapa);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
     private function guardarTodo(array $db, bool $soloAsistencias = false): JsonResponse
     {
+        if (!$soloAsistencias) {
+            // Orientadores y grupos van en su propia transacción: un problema con un alumno no los deja sin guardar
+            $this->guardarSoloOrientadores($db);
+        }
+
         DB::transaction(function () use ($db, $soloAsistencias) {
             if ($soloAsistencias) {
                 $this->guardarSoloAsistencias($db['alumnos'] ?? []);
                 return;
             }
 
-            $mapaOrientadores = $this->guardarOrientadores($db['orientadores'] ?? []);
-            $this->guardarHorarios($db['horarios'] ?? [], $mapaOrientadores);
             $this->guardarPlantillas($db['plantillas'] ?? []);
             $this->guardarAlumnos($db['alumnos'] ?? []);
         });
