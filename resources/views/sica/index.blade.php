@@ -80,11 +80,19 @@ body{padding-bottom:env(safe-area-inset-bottom)}
 body{overflow-x:hidden}
 /* ===== MODO TELÉFONO (orientador): solo escanear ===== */
 body.modo-movil #selector-pestanas-superior,
-body.modo-movil #panel-orientador > *:not(#bloque-camara-orientador),
+body.modo-movil #panel-orientador > *:not(#bloque-camara-orientador):not(#bloque-mi-grupo-orientador):not(#bloque-buscador-orientador):not(#bloque-tabla-orientador),
 body.modo-movil #btn-regresar-panel{display:none !important}
 body.modo-movil #vista-sistema{padding:.75rem !important}
 body.modo-movil .camera-box-ref{max-width:100%;min-height:260px}
 body.modo-movil #res-cam-orient{font-size:1.1rem;min-height:40px}
+/* En el teléfono el orientador también ve su grupo y la lista de alumnos (cámara arriba, lista abajo) */
+body.modo-movil #bloque-camara-orientador{margin-bottom:1rem !important}
+body.modo-movil #bloque-buscador-orientador .col-md-3,
+body.modo-movil #bloque-tabla-orientador > div:first-child .d-flex.gap-2{display:none !important}
+body.modo-movil #bloque-tabla-orientador th:nth-child(1),body.modo-movil #bloque-tabla-orientador td:nth-child(1),
+body.modo-movil #bloque-tabla-orientador th:nth-child(3),body.modo-movil #bloque-tabla-orientador td:nth-child(3),
+body.modo-movil #bloque-tabla-orientador th:nth-child(4),body.modo-movil #bloque-tabla-orientador td:nth-child(4),
+body.modo-movil #bloque-tabla-orientador th:nth-child(7),body.modo-movil #bloque-tabla-orientador td:nth-child(7){display:none}
 body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;padding:.9rem}
 /* ---- Contraseñas: botones de cuenta y ventana central ---- */
 .btn-cuenta{border:1.5px solid #d9c3c8;background:#fff;color:#5a1020;border-radius:999px;padding:.4rem .9rem;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:.45rem;cursor:pointer;transition:all .15s}
@@ -441,7 +449,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <button onclick="activarCamaraOrientador()" id="btn-activar-camara-orientador" class="btn btn-vinotinto px-4 py-2 rounded-pill shadow-sm small btn-accion-restringida">Activar Cámara</button>
  <button onclick="detener('cam-orient')" class="btn btn-dark py-2 px-3 rounded-pill small">Apagar</button>
  </div>
- <div class="row g-3 mb-4 bg-light p-3 rounded-3 border">
+ <div id="bloque-buscador-orientador" class="row g-3 mb-4 bg-light p-3 rounded-3 border">
  <div class="col-md-5"><label class="form-label">Buscador de Alumno</label><input type="text" id="buscador-alumno" class="form-control shadow-sm" placeholder="Ej. Maria Jose..." oninput="renderTabla()"></div>
  <div class="col-md-4"><label class="form-label">Calendario (fecha a consultar)</label><input type="date" id="calendario-orientador" class="form-control shadow-sm" onchange="renderTabla()"></div>
  <div class="col-md-3">
@@ -452,7 +460,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </select>
  </div>
  </div>
- <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+ <div id="bloque-tabla-orientador">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
  <h6 class="fw-bold m-0" id="titulo-tabla-orientador">Turno Matutino</h6>
  <div class="d-flex gap-2 flex-wrap">
  <button onclick="descargarReporte('Excel')" class="btn btn-success px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida">Descargar Excel</button>
@@ -465,6 +474,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <tbody id="tabla-cuerpo-orientador"></tbody>
  </table>
  </div>
+</div>
 </div>
 <!-- ===== 4. CONTROL ESCOLAR ===== -->
 <div id="panel-control" class="panel-perfil d-none">
@@ -780,7 +790,14 @@ function descargarEstadoServidor() {
    fusionarServidor(s);
    if (orientadorActivo) {
     orientadorActivo = db.orientadores.find(o => o.id === orientadorActivo.id) || orientadorActivo;
+    const gruposAntes = JSON.stringify(gruposDelOrientador);
     gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
+    // Control Escolar asignó (o cambió) el grupo mientras este equipo ya estaba dentro: se actualiza la lista de grupos
+    if (rolActivo === 'orientador' && JSON.stringify(gruposDelOrientador) !== gruposAntes) {
+     const elegido = $('#sel-mi-grupo').val();
+     configurarMiGrupoOrientador();
+     if (elegido && $('#sel-mi-grupo option[value="' + elegido + '"]').length) { $('#sel-mi-grupo').val(elegido); elegirMiGrupo(elegido); }
+    }
    }
    if (rolActivo) {
     renderTabla();
