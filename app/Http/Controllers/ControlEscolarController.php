@@ -35,7 +35,6 @@ class ControlEscolarController extends Controller
             'registrar_asistencia' => $this->registrarAsistencia($validado['datos']),
             'eliminar_alumno'      => $this->eliminarAlumno($validado['datos']),
             'eliminar_orientador'  => $this->eliminarOrientador($validado['datos']),
-            'renombrar_orientador' => $this->renombrarOrientador($validado['datos']),
             default                => response()->json(['ok' => false, 'mensaje' => 'Acción no reconocida'], 400),
         };
     }
@@ -262,33 +261,6 @@ class ControlEscolarController extends Controller
         }
 
         // Si ya no existía en el servidor, también es correcto: el navegador lo quita de su lista
-        return response()->json(['ok' => true]);
-    }
-
-    /** Cambia el nombre de un orientador conservando su id, sus grupos y su contraseña */
-    private function renombrarOrientador(array $d): JsonResponse
-    {
-        $nuevo = trim((string) ($d['nombre'] ?? ''));
-        $viejo = trim((string) ($d['nombre_anterior'] ?? ''));
-
-        if ($nuevo === '') {
-            return response()->json(['ok' => false, 'mensaje' => 'Escribe el nombre.'], 422);
-        }
-
-        $orientador = (isset($d['id']) && ctype_digit((string) $d['id'])) ? Orientador::find((int) $d['id']) : null;
-        $orientador = $orientador ?? ($viejo !== '' ? Orientador::where('nombre', $viejo)->first() : null);
-
-        if (!$orientador) {
-            // Aún no estaba en el servidor: se guardará con el nombre nuevo en el siguiente guardado
-            return response()->json(['ok' => true]);
-        }
-
-        if (Orientador::where('nombre', $nuevo)->where('id', '!=', $orientador->id)->exists()) {
-            return response()->json(['ok' => false, 'mensaje' => 'Ya existe un orientador(a) con ese nombre.'], 422);
-        }
-
-        DB::table('orientadores')->where('id', $orientador->id)->update(['nombre' => $nuevo, 'updated_at' => now()]);
-
         return response()->json(['ok' => true]);
     }
 

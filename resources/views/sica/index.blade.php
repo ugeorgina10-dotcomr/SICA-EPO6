@@ -1026,8 +1026,8 @@ function renderListaOrientadores() {
     ' <a href="#" class="text-danger text-decoration-none ms-1" title="Quitar de este grupo" data-o="' + esc(o.id) + '" data-k="' + esc(k) + '" onclick="quitarGrupoOrientador(this.dataset.o, this.dataset.k); return false;">&times;</a></span>'; });
   return '<div class="ori-item"><div><div class="fw-semibold">' + esc(o.nombre) + '</div>' +
    '<div class="small ' + (chips.length ? '' : 'text-danger') + '">' + (chips.length ? chips.join('') : 'Sin grupo asignado') + '</div></div>' +
-   '<div class="d-flex gap-1 flex-shrink-0"><button type="button" data-o="' + esc(o.id) + '" onclick="editarOrientador(this.dataset.o)" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Cambiar el nombre">Editar</button>' +
-   '<button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar orientador">Eliminar</button></div></div>';
+   '<div class="d-flex gap-1 flex-shrink-0"><button type="button" data-o="' + esc(o.id) + '" onclick="editarOrientador(this.dataset.o)" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Cambiar grados y grupos">Editar</button>' +
+   '<button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar orientador">Eliminar</button></div></div>' + (oriEditando && oriEditando.id === o.id ? htmlEditorOrientador(oriEditando) : '');
  }).join('');
  caja.html('<details class="ori-desplegable"' + (abierta ? ' open' : '') + '><summary>Ver orientadores dados de alta (' + db.orientadores.length + ')</summary><div class="ori-lista">' + filas + '</div></details>');
 }
@@ -1040,23 +1040,41 @@ function quitarGrupoOrientador(id, clave) {
  h.orientadorId = '';
  save(); renderListaOrientadores(); poblarSelectOrientadorHorario(); refrescarHorarioForm(); renderTabla();
 }
-/* Cambia el nombre de un orientador (en el servidor y en este navegador). Conserva sus grupos y su contraseña. */
+/* ---- Editar los grados y grupos de un orientador (puede tener varios) ---- */
+let oriEditando = null;   // {id, filas:[{turno, grado, grupo}]}
 function editarOrientador(id) {
  if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede editar orientadores.'); return; }
- const o = db.orientadores.find(x => x.id === id); if (!o) return;
- const nuevo = (prompt('Nombre completo del orientador(a):', o.nombre) || '').replace(/\s+/g, ' ').trim();
- if (!nuevo || nuevo === o.nombre) return;
- if (db.orientadores.some(x => x.id !== id && norm(x.nombre) === norm(nuevo))) { alert('Ya existe un orientador(a) con ese nombre.'); return; }
- fetch('/api/sica/sync', {
- method: 'POST',
- headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
- body: JSON.stringify({accion:'renombrar_orientador', datos:{id:o.id, nombre_anterior:o.nombre, nombre:nuevo}})
- }).then(r => r.json().catch(() => ({})).then(d => { if (!r.ok || d.ok === false) return Promise.reject(d.mensaje || ''); }))
- .then(() => {
- o.nombre = nuevo;
- localStorage.setItem(LS, JSON.stringify(db));
- renderListaOrientadores(); poblarSelectOrientadorHorario(); renderTabla();
- }).catch(m => alert(m || 'No se pudo cambiar el nombre en el servidor. Revisa tu conexión e inténtalo de nuevo.'));
+ if (oriEditando && oriEditando.id === id) { oriEditando = null; renderListaOrientadores(); return; }
+ const filas = Object.entries(db.horarios).filter(([k, v]) => v.orientadorId === id).map(([k]) => { const c = parseClave(k); return {turno: c.turno, grado: Number(c.grado), grupo: Number(c.grupo)}; });
+ oriEditando = {id: id, filas: filas.length ? filas : [{turno: turnoActivo, grado: 1, grupo: 1}]};
+ renderListaOrientadores();
+}
+function htmlEditorOrientador(e) {
+ const opt = (vals, sel, txt) => vals.map(v => '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + (txt ? txt(v) : v) + '</option>').join('');
+ const filas = e.filas.map((f, i) =>
+  '<div class="d-flex gap-2 align-items-center mb-2">' +
+  '<select class="form-select form-select-sm" style="max-width:140px" onchange="oriEditando.filas[' + i + '].turno=this.value">' + opt(['Matutino', 'Vespertino'], f.turno) + '</select>' +
+  '<select class="form-select form-select-sm" style="max-width:120px" onchange="oriEditando.filas[' + i + '].grado=Number(this.value)">' + opt([1, 2, 3], f.grado, v => v + '° grado') + '</select>' +
+  '<select class="form-select form-select-sm" style="max-width:120px" onchange="oriEditando.filas[' + i + '].grupo=Number(this.value)">' + opt([1, 2, 3, 4], f.grupo, v => 'Grupo ' + v) + '</select>' +
+  '<button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Quitar este grupo" onclick="oriEditando.filas.splice(' + i + ',1); renderListaOrientadores()">&times;</button></div>').join('');
+ return '<div class="p-2 border-bottom" style="background:#fdf3f5"><div class="small fw-semibold mb-2">Grados y grupos de este orientador(a)</div>' +
+  (filas || '<div class="small text-muted mb-2">Sin grupos: quedará sin grupo asignado.</div>') +
+  '<div class="d-flex gap-2 mt-1"><button type="button" class="btn btn-outline-dark btn-sm py-0 px-2" onclick="oriEditando.filas.push({turno:turnoActivo,grado:1,grupo:1}); renderListaOrientadores()">+ Agregar grupo</button>' +
+  '<button type="button" class="btn btn-vinotinto btn-sm py-0 px-3" onclick="guardarGruposOrientador()">Guardar</button>' +
+  '<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="oriEditando=null; renderListaOrientadores()">Cancelar</button></div></div>';
+}
+function guardarGruposOrientador() {
+ if (!oriEditando || rolActivo !== 'control') return;
+ const id = oriEditando.id, o = db.orientadores.find(x => x.id === id); if (!o) { oriEditando = null; return; }
+ const nuevas = [];
+ for (const f of oriEditando.filas) { const k = claveGrupo(f.grado, f.grupo, f.turno); if (!nuevas.includes(k)) nuevas.push(k); }
+ const quitan = [];
+ nuevas.forEach(k => { const h = db.horarios[k]; if (h && h.orientadorId && h.orientadorId !== id) { const otro = db.orientadores.find(x => x.id === h.orientadorId), c = parseClave(k); quitan.push(c.grado + '° grado, grupo ' + c.grupo + ' (' + c.turno + ') — hoy de ' + (otro ? otro.nombre : 'otro orientador(a)')); } });
+ if (quitan.length && !confirm('Estos grupos ya tienen otro orientador(a) y pasarán a ' + o.nombre + ':\n' + quitan.join('\n') + '\n¿Continuar?')) return;
+ Object.keys(db.horarios).forEach(k => { if (db.horarios[k].orientadorId === id && !nuevas.includes(k)) db.horarios[k].orientadorId = ''; });
+ nuevas.forEach(k => { const h = db.horarios[k] || {entrada: '', salida: '', orientadorId: ''}; h.orientadorId = id; db.horarios[k] = h; });
+ oriEditando = null;
+ save(); renderListaOrientadores(); poblarSelectOrientadorHorario(); refrescarHorarioForm(); renderTabla();
 }
 /* Elimina un orientador del servidor y de este navegador. Sus grupos quedan "sin asignar". Solo Control Escolar. */
 function eliminarOrientador(id) {
