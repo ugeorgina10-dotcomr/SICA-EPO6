@@ -92,7 +92,8 @@ body.modo-movil #bloque-tabla-orientador > div:first-child .d-flex.gap-2{display
 body.modo-movil #bloque-tabla-orientador th:nth-child(1),body.modo-movil #bloque-tabla-orientador td:nth-child(1),
 body.modo-movil #bloque-tabla-orientador th:nth-child(3),body.modo-movil #bloque-tabla-orientador td:nth-child(3),
 body.modo-movil #bloque-tabla-orientador th:nth-child(4),body.modo-movil #bloque-tabla-orientador td:nth-child(4),
-body.modo-movil #bloque-tabla-orientador th:nth-child(7),body.modo-movil #bloque-tabla-orientador td:nth-child(7){display:none}
+body.modo-movil #bloque-tabla-orientador th:nth-child(7),body.modo-movil #bloque-tabla-orientador td:nth-child(7),
+body.modo-movil #bloque-tabla-orientador th:nth-child(9),body.modo-movil #bloque-tabla-orientador td:nth-child(9){display:none}
 body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;padding:.9rem}
 /* ---- Orientadores: lista desplegable ---- */
 .ori-desplegable{border:1.5px solid #d9c3c8;border-radius:.75rem;background:#fff;overflow:hidden}
@@ -397,7 +398,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores (con su grado, grupo y turno) -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020">Subir Lista de Orientadores</h6>
- <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con <b>una fila por orientador(a)</b> y estas columnas: <b>Nombre completo</b>, <b>Grado</b> (1, 2 o 3), <b>Grupo</b> (1 al 4) y <b>Turno</b> (Matutino o Vespertino; es opcional, si no lo pones se usa el turno que tienes activo arriba). Al subir el archivo, cada orientador(a) <b>queda asignado a ese grado, grupo y turno</b>.</p>
+ <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con <b>una fila por orientador(a)</b> y estas columnas: <b>Nombre completo</b>, <b>Grado</b> (1, 2 o 3), <b>Grupo</b> (1 al 4) y <b>Turno</b> (Matutino, Vespertino o Ambos; es opcional, si no lo pones se usa el turno que tienes activo arriba). Al subir el archivo, cada orientador(a) <b>queda asignado a ese grado, grupo y turno</b>.</p>
  <div class="row g-3 align-items-end mb-2">
  <div class="col-md-8"><label class="form-label small">Archivo</label><input type="file" id="archivo-orientadores" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
  <div class="col-md-4"><button onclick="subirOrientadores()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Subir Orientadores</button></div>
@@ -480,7 +481,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="table-responsive bg-white rounded-3 p-2 border shadow-sm mb-4">
  <table class="table table-striped table-hover align-middle mb-0 small">
- <thead class="table-dark"><tr><th>Matrícula / QR</th><th>Alumno</th><th>Grado</th><th>Grupo</th><th>Entrada</th><th>Salida</th><th>Permanencia</th><th>Estatus</th><th class="text-center">Acción</th></tr></thead>
+ <thead class="table-dark"><tr><th>Matrícula / QR</th><th>Alumno</th><th>Grado</th><th>Grupo</th><th>Entrada</th><th>Salida</th><th>Permanencia</th><th>Estatus</th><th>Orientador(a)</th><th class="text-center">Acción</th></tr></thead>
  <tbody id="tabla-cuerpo-orientador"></tbody>
  </table>
  </div>
@@ -958,7 +959,7 @@ function numeroDe(v) {
  const m = t.match(/\d+/);
  return m ? Number(m[0]) : 0;
 }
-const turnoDe = v => /vesp/i.test(String(v)) ? 'Vespertino' : 'Matutino';
+const turnoDe = v => /ambos|ambas|mixto/i.test(String(v)) ? 'Ambos' : /vesp/i.test(String(v)) ? 'Vespertino' : 'Matutino';
 /* Una fila del archivo -> {nombre, grado, grupo, turno}.
    Excel/CSV: columnas Nombre | Grado | Grupo | Turno (opcional).
    PDF o una sola columna: "Nombre ... 1 2 Matutino" al final de la línea (el turno es opcional). */
@@ -969,7 +970,7 @@ function leerFilaOrientador(r) {
   grado = numeroDe(r[1]); grupo = numeroDe(r[2]);
   if (r[3] != null && String(r[3]).trim()) turno = turnoDe(r[3]);
  } else {
-  const m = nombre.replace(/\s+/g, ' ').match(/^(.*?)[\s,;|\-]+([1-9])[\s,;|\-°º]*([1-9])(?:[\s,;|\-]+(matutino|vespertino))?\s*$/i);
+  const m = nombre.replace(/\s+/g, ' ').match(/^(.*?)[\s,;|\-]+([1-9])[\s,;|\-°º]*([1-9])(?:[\s,;|\-]+(matutino|vespertino|ambos(?:\s+turnos)?))?\s*$/i);
   if (m) { nombre = m[1].trim(); grado = Number(m[2]); grupo = Number(m[3]); if (m[4]) turno = turnoDe(m[4]); }
  }
  return {nombre: nombre.replace(/\s+/g, ' ').trim(), grado: grado, grupo: grupo, turno: turno};
@@ -991,7 +992,8 @@ function subirOrientadores() {
    if (o) existentes++; else { o = {id: generarId(), nombre: f.nombre}; db.orientadores.push(o); nuevos++; }
    if (!f.grado && !f.grupo) return;   // solo trae el nombre: queda sin grupo
    if (f.grado < 1 || f.grado > 3 || f.grupo < 1 || f.grupo > 4) { avisos.push(f.nombre + ': grado o grupo no válido (grado 1 a 3, grupo 1 a 4); quedó sin grupo.'); return; }
-   const turno = f.turno || turnoActivo;
+   const turnos = f.turno === 'Ambos' ? ['Matutino', 'Vespertino'] : [f.turno || turnoActivo];
+   turnos.forEach(turno => {
    const clave = claveGrupo(f.grado, f.grupo, turno);
    const etiqueta = f.grado + '° grado, grupo ' + f.grupo + ' (' + turno + ')';
    const h = db.horarios[clave] || {entrada: '', salida: '', orientadorId: ''};
@@ -1003,6 +1005,7 @@ function subirOrientadores() {
    h.orientadorId = o.id;
    db.horarios[clave] = h;   // si el grupo ya tenía horario, se conserva
    asignados++;
+   });
   });
   save();
   poblarSelectOrientadorHorario();
@@ -1852,12 +1855,18 @@ function elegirGrupo(grado, grupo) {
 function filtrados() {
  return db.alumnos.filter(a => a.turno === turnoActivo && (!filtro || (a.grado === filtro.grado && a.grupo === filtro.grupo)));
 }
+/* Orientador(a) del grupo del alumno: sale solo de la asignación del grupo, así aparece apenas se sube la lista. */
+function nombreOrientadorDe(a) {
+ const h = db.horarios[claveGrupo(a.grado, a.grupo, a.turno)];
+ const o = h && h.orientadorId ? db.orientadores.find(x => x.id === h.orientadorId) : null;
+ return o ? esc(o.nombre) : '<span class="text-danger">Sin asignar</span>';
+}
 function renderTabla() {
  const f = $('#calendario-orientador').val() || hoy(), q = norm($('#buscador-alumno').val());
  const rows = filtrados().filter(a => norm(a.nombre).includes(q)).map(a => {
  const r = a.reg[f] || {}, e = estatusDe(a, r, f), dis = (!r.entrada || r.salida || f !== hoy()) ? 'disabled' : '';
- return `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td>${a.grado}</td><td>${a.grupo}</td><td>${r.entrada || '—'}</td><td>${r.salida || 'Pendiente'}</td><td>${permDe(r)}</td><td><span class="badge ${claseEst[e]}">${e}</span></td><td class="text-center"><button data-c="${esc(a.id)}" onclick="marcarSalida(this.dataset.c)" class="btn btn-outline-dark btn-sm btn-accion-restringida" ${dis}>Marcar Salida</button></td></tr>`;
- }).join('') || '<tr><td colspan="9" class="text-center text-muted py-3">Sin alumnos. Control Escolar debe subir la lista de este grupo.</td></tr>';
+ return `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td>${a.grado}</td><td>${a.grupo}</td><td>${r.entrada || '—'}</td><td>${r.salida || 'Pendiente'}</td><td>${permDe(r)}</td><td><span class="badge ${claseEst[e]}">${e}</span></td><td>${nombreOrientadorDe(a)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="marcarSalida(this.dataset.c)" class="btn btn-outline-dark btn-sm btn-accion-restringida" ${dis}>Marcar Salida</button></td></tr>`;
+ }).join('') || '<tr><td colspan="10" class="text-center text-muted py-3">Sin alumnos. Control Escolar debe subir la lista de este grupo.</td></tr>';
  $('#tabla-cuerpo-orientador').html(rows);
  if (rolActivo) aplicarPermisosSolo();
  renderStats();
@@ -1887,7 +1896,8 @@ function subirLista() {
  else { db.alumnos.push({id:generarId(), curp:'', nombre:nombre, grado:filtro.grado, grupo:filtro.grupo, turno:turnoActivo, reg:{}}); nuevos++; }
  });
  save(); renderTabla();
- alert('Lista cargada en ' + filtro.grado + '° grado, grupo ' + filtro.grupo + ' (' + turnoActivo + '): ' + nuevos + ' alumno(s) nuevo(s), ' + actualizados + ' actualizado(s).\nRecuerda asignar su CURP y credencial desde el Portal del Alumno.');
+ const hg = db.horarios[claveGrupo(filtro.grado, filtro.grupo, turnoActivo)], og = hg && hg.orientadorId ? db.orientadores.find(x => x.id === hg.orientadorId) : null;
+ alert('Lista cargada en ' + filtro.grado + '° grado, grupo ' + filtro.grupo + ' (' + turnoActivo + '): ' + nuevos + ' alumno(s) nuevo(s), ' + actualizados + ' actualizado(s).\nOrientador(a) del grupo: ' + (og ? og.nombre : 'sin asignar todavía') + '.\nRecuerda asignar su CURP y credencial desde el Portal del Alumno.');
  $('#archivo-lista').val('');
  }, msg => alert(msg));
 }
