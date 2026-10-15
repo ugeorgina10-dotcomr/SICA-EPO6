@@ -129,7 +129,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <p class="cct-text mb-0">C.C.T. 15EBH0008G (Matutino) &nbsp;|&nbsp; C.C.T. 15EBH0199N (Vespertino)</p>
 </div>
  <button onclick="mostrarSeccion('vista-login')" class="btn btn-vinotinto btn-lg rounded-pill py-3 px-5 shadow fs-5">
- <i class="fa-solid fa-right-to-bracket me-2"></i> INGRESAR AL SISTEMA
+ INGRESAR AL SISTEMA
 </button>
 </div>
 <!-- ============ LOGIN ============ -->
@@ -194,7 +194,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="d-flex align-items-center gap-2">
  <span id="badge-rol-activo" class="badge bg-dark px-3 py-2 fs-6">Rol: --</span>
  <button onclick="location.reload()" class="btn btn-outline-dark btn-sm rounded-pill px-3 shadow-sm">
- <i class="fa-solid fa-rotate me-1"></i> Recargar Sistema
+ Recargar Sistema
  </button>
  </div>
 </div>
@@ -216,7 +216,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 <div id="panel-alumno" class="panel-perfil d-none">
  <!-- ===== PLANTILLA OFICIAL DE CREDENCIALES (solo Control Escolar, dentro del Portal del Alumno) ===== -->
  <div id="bloque-plantilla-oficial" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-id-card me-2"></i> Plantilla Oficial de Credenciales <span id="turno-plantilla-actual" class="badge bg-secondary ms-2 align-middle">Matutino</span></h6>
+ <h6 class="fw-bold mb-2" style="color:#800020">Plantilla Oficial de Credenciales <span id="turno-plantilla-actual" class="badge bg-secondary ms-2 align-middle">Matutino</span></h6>
  <p class="text-muted small mb-3">Reemplaza el diseño oficial (frente y reverso) para <b>todos los grupos del turno elegido</b> (usa los botones Matutino / Vespertino de abajo para cambiar de turno). Cada turno tiene su propia plantilla (cambia el C.C.T.). La imagen debe conservar las mismas proporciones y la misma distribución que la actual (frente 797×541, reverso 930×575 px, o mayor con la misma proporción) para que nombre, CURP, grado, grupo, turno y QR caigan en su lugar.</p>
  <div class="row g-3">
  <div class="col-md-6">
@@ -237,7 +237,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  </div>
  <button class="btn btn-outline-dark btn-sm mt-3" onclick="restaurarPlantillaOficial()">
- <i class="fa-solid fa-rotate-left me-1"></i> Restaurar plantilla original
+ Restaurar plantilla original
  </button>
  <div id="resumen-plantilla-oficial" class="mt-2 small fw-semibold"></div>
  </div>
@@ -247,8 +247,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <h5 class="fw-bold text-uppercase mb-2" style="color:#800020">Credencial digital con código QR</h5>
  <p class="text-muted small mb-3">Elige el turno, selecciona el grupo y administra las credenciales. Cada turno usa su plantilla oficial (frente y reverso); solo el Encargado de Control Escolar puede cambiarla (bloque "Plantilla Oficial de Credenciales" de arriba).</p>
  <div class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
- <button onclick="setTurnoCred('Matutino')" id="btn-turno-cred-matutino" class="btn btn-vinotinto px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-sun me-1"></i> Matutino</button>
- <button onclick="setTurnoCred('Vespertino')" id="btn-turno-cred-vespertino" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-moon me-1"></i> Vespertino</button>
+ <button onclick="setTurnoCred('Matutino')" id="btn-turno-cred-matutino" class="btn btn-vinotinto px-4 py-2 fw-semibold shadow-sm small">Matutino</button>
+ <button onclick="setTurnoCred('Vespertino')" id="btn-turno-cred-vespertino" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm small">Vespertino</button>
  </div>
  <div class="row g-2 mb-4 justify-content-center">
  @foreach(['Primero','Segundo','Tercero'] as $i => $gr)
@@ -282,13 +282,13 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </table>
  </div>
  <button onclick="descargarCredencialesPDF()" class="btn btn-vinotinto w-100 py-3 shadow-sm btn-accion-restringida">
- <i class="fa-solid fa-file-pdf me-2"></i> Descargar Credenciales Completas del Grupo (Frente y Reverso)
+ Descargar Credenciales Completas del Grupo (Frente y Reverso)
  </button>
  </div>
  <div id="vista-editar-credencial-individual" class="d-none p-4 bg-white rounded-3 border shadow-sm mb-3 col-md-10 mx-auto text-start">
  <div class="d-flex justify-content-between mb-3">
- <h6 class="fw-bold m-0 text-danger"><i class="fa-solid fa-pen-to-square me-2"></i>Editar Credencial Individual</h6>
- <button onclick="regresarListaGrupo()" class="btn btn-outline-dark btn-sm"><i class="fa-solid fa-arrow-left me-1"></i> Regresar a Todos</button>
+ <h6 class="fw-bold m-0 text-danger">Editar Credencial Individual</h6>
+ <button onclick="regresarListaGrupo()" class="btn btn-outline-dark btn-sm">Regresar a Todos</button>
  </div>
  <div class="row">
  <div class="col-md-6">
@@ -297,8 +297,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="mb-3"><label class="form-label small">Nombre Completo (Apellido paterno, Apellido materno y Nombre)</label>
  <input type="text" id="edit-nombre-alumno" class="form-control form-control-sm" oninput="actualizarVistaPreviaCredencial()"></div>
  <div class="d-flex gap-2">
- <button onclick="guardarCambiosCredencial()" class="btn btn-success w-100 btn-accion-restringida"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar Cambios</button>
- <button onclick="descargarCredencialIndividual()" class="btn btn-vinotinto w-100 btn-accion-restringida"><i class="fa-solid fa-download me-1"></i> Descargar PDF</button>
+ <button onclick="guardarCambiosCredencial()" class="btn btn-success w-100 btn-accion-restringida">Guardar Cambios</button>
+ <button onclick="descargarCredencialIndividual()" class="btn btn-vinotinto w-100 btn-accion-restringida">Descargar PDF</button>
  </div>
  </div>
  <div class="col-md-6">
@@ -324,22 +324,22 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <h5 class="fw-bold text-uppercase mb-1" style="color:#800020">Lector Fijo - Control de Entradas y Salidas</h5>
  <p class="text-muted small mb-3">Elige el tipo de escaneo, enciende la cámara y muestra el QR de la credencial:</p>
  <div class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
- <button onclick="setModoEscaneo('Entrada')" id="btn-modo-entrada" class="btn btn-success px-4 py-2 fw-semibold shadow-sm"><i class="fa-solid fa-right-to-bracket me-2"></i> Registrar Entrada</button>
- <button onclick="setModoEscaneo('Salida')" id="btn-modo-salida" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm"><i class="fa-solid fa-right-from-bracket me-2"></i> Registrar Salida</button>
+ <button onclick="setModoEscaneo('Entrada')" id="btn-modo-entrada" class="btn btn-success px-4 py-2 fw-semibold shadow-sm">Registrar Entrada</button>
+ <button onclick="setModoEscaneo('Salida')" id="btn-modo-salida" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm">Registrar Salida</button>
  </div>
  <div class="camera-box-ref mb-2 border border-danger shadow">
- <div class="cam-ph text-center text-warning"><i class="fa-solid fa-camera fa-2x mb-2"></i><span class="small d-block fw-semibold">[ <span id="lbl-modo">Entrada</span> ] - Cámara apagada</span></div>
+ <div class="cam-ph text-center text-warning"><span class="small d-block fw-semibold">[ <span id="lbl-modo">Entrada</span> ] - Cámara apagada</span></div>
  <div id="cam-fija" style="width:100%"></div>
  </div>
  <div id="res-cam-fija" class="res-scan mb-2"></div>
- <button onclick="toggleCamaraFija()" class="btn btn-vinotinto px-4"><i class="fa-solid fa-poweroff me-2"></i> Encender / Apagar Cámara</button>
+ <button onclick="toggleCamaraFija()" class="btn btn-vinotinto px-4">Encender / Apagar Cámara</button>
  </div>
 </div>
 <!-- ===== 3. PANEL DE ORIENTADORES ===== -->
 <div id="panel-orientador" class="panel-perfil d-none">
  <div id="bloque-turno-panel" class="d-flex justify-content-center gap-3 mb-3 flex-wrap">
- <button onclick="setTurno('Matutino')" id="btn-turno-matutino" class="btn btn-vinotinto px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-sun me-1"></i> Turno Matutino</button>
- <button onclick="setTurno('Vespertino')" id="btn-turno-vespertino" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-moon me-1"></i> Turno Vespertino</button>
+ <button onclick="setTurno('Matutino')" id="btn-turno-matutino" class="btn btn-vinotinto px-4 py-2 fw-semibold shadow-sm small">Turno Matutino</button>
+ <button onclick="setTurno('Vespertino')" id="btn-turno-vespertino" class="btn btn-outline-dark bg-white px-4 py-2 fw-semibold shadow-sm small">Turno Vespertino</button>
  </div>
  <!-- VISUALIZAR GRUPO: para Control Escolar, Director y Subdirector (eligen cualquier grupo) -->
  <div id="bloque-visualizar-grupo" class="mb-3">
@@ -361,7 +361,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <label class="form-label mb-2 text-uppercase fs-6">Mi Grupo Asignado:</label>
  <div class="p-3 bg-light rounded-3 border d-flex align-items-center gap-3 flex-wrap">
  <div id="sin-grupo-orientador" class="text-danger fw-semibold small d-none">
- <i class="fa-solid fa-triangle-exclamation me-1"></i> Aún no tienes un grupo asignado. Solicita a Control Escolar que te asigne uno.
+ Aún no tienes un grupo asignado. Solicita a Control Escolar que te asigne uno.
  </div>
  <div id="con-grupo-orientador" class="d-none w-100">
  <div class="row g-2 align-items-end">
@@ -378,23 +378,23 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-user-plus me-2"></i> Subir Lista de Orientadores</h6>
+ <h6 class="fw-bold mb-2" style="color:#800020">Subir Lista de Orientadores</h6>
  <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>nombre completo de cada orientador(a)</b>, uno por fila o por línea. Después, asígnalos a un grado, grupo y turno en el bloque de horario de abajo.</p>
  <div class="row g-3 align-items-end mb-2">
  <div class="col-md-8"><label class="form-label small">Archivo</label><input type="file" id="archivo-orientadores" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
- <div class="col-md-4"><button onclick="subirOrientadores()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-upload me-1"></i> Subir Orientadores</button></div>
+ <div class="col-md-4"><button onclick="subirOrientadores()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Subir Orientadores</button></div>
  </div>
  <div id="resumen-orientadores" class="small text-muted"></div>
  <div id="lista-orientadores-actual" class="small mt-2"></div>
  </div>
  <!-- SOLO CONTROL ESCOLAR: subir lista del grupo elegido arriba -->
  <div id="bloque-listas-orientador" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-file-arrow-up me-2"></i> Subir Lista del Grupo</h6>
+ <h6 class="fw-bold mb-2" style="color:#800020">Subir Lista del Grupo</h6>
  <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>nombre completo</b>, uno por fila o por línea (o en 3 columnas: Apellido paterno, Apellido materno y Nombre(s)). Se asigna al grado, grupo y turno elegidos arriba, y el nombre se guarda como <b>Apellido paterno, Apellido materno y Nombre(s)</b>. El CURP y la credencial se asignan después desde el <b>Portal del Alumno</b>.</p>
  <div class="row g-3 align-items-end">
  <div class="col-md-4"><label class="form-label small">Grupo seleccionado</label><input type="text" id="lbl-grupo-lista" class="form-control form-control-sm" value="Selecciona grado y grupo arriba" readonly></div>
  <div class="col-md-5"><label class="form-label small">Archivo</label><input type="file" id="archivo-lista" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
- <div class="col-md-3"><button onclick="subirLista()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold btn-accion-restringida"><i class="fa-solid fa-upload me-1"></i> Subir Lista</button></div>
+ <div class="col-md-3"><button onclick="subirLista()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold btn-accion-restringida">Subir Lista</button></div>
  <div class="col-12">
  <label class="form-label small">Orden de los nombres en el archivo</label>
  <select id="orden-nombre-lista" class="form-select form-select-sm">
@@ -406,7 +406,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <!-- SOLO CONTROL ESCOLAR: horario de entrada/salida y orientador del grupo -->
  <div id="bloque-horario-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-clock me-2"></i> Horario y Orientador(a) del Grupo</h6>
+ <h6 class="fw-bold mb-2" style="color:#800020">Horario y Orientador(a) del Grupo</h6>
  <p class="text-muted small mb-3">Define la hora límite de entrada (para marcar retardo), la hora de cierre (para marcar permanencia) y el orientador(a) del grado, grupo y turno seleccionados arriba. El horario y el orientador son independientes en cada turno. Un orientador(a) ya asignado a otro grupo aparece bloqueado aquí para evitar duplicar su asignación.</p>
  <div class="row g-3 align-items-end mb-3">
  <div class="col-md-3"><label class="form-label small">Hora límite de entrada</label><input type="time" id="horario-entrada-limite" class="form-control form-control-sm"></div>
@@ -416,11 +416,11 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <option value="" selected>Sin asignar</option>
  </select>
  </div>
- <div class="col-md-2"><button onclick="guardarHorarioGrupo()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button></div>
+ <div class="col-md-2"><button onclick="guardarHorarioGrupo()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Guardar</button></div>
  </div>
  <div class="row g-3 align-items-end">
  <div class="col-md-6"><label class="form-label small">Archivo de horarios (.xlsx/.xls/.csv): columnas Grado, Grupo, HoraEntrada, HoraSalida, NombreOrientador y Turno (opcional; si no se indica se usa el turno activo)</label><input type="file" id="archivo-horarios" class="form-control form-control-sm" accept=".xlsx,.xls,.csv"></div>
- <div class="col-md-3"><button onclick="subirHorarios()" class="btn btn-dark btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-upload me-1"></i> Subir Horarios</button></div>
+ <div class="col-md-3"><button onclick="subirHorarios()" class="btn btn-dark btn-sm w-100 py-2 fw-semibold">Subir Horarios</button></div>
  </div>
  <div id="resumen-horario-grupo" class="mt-2 small text-muted"></div>
  </div>
@@ -429,16 +429,16 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <h6 class="fw-bold mb-3 text-uppercase" style="color:#800020;font-size:.9rem">Cámara de Escaneo (Entradas y Salidas)</h6>
  <!-- CAMBIO: cualquier orientador puede registrar entrada o salida de cualquier alumno -->
  <div class="d-flex justify-content-center gap-2 mb-3 flex-wrap">
- <button onclick="setModoOrient('Entrada')" id="btn-orient-entrada" class="btn btn-success px-3 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-right-to-bracket me-1"></i> Entrada</button>
- <button onclick="setModoOrient('Salida')" id="btn-orient-salida" class="btn btn-outline-dark bg-white px-3 py-2 fw-semibold shadow-sm small"><i class="fa-solid fa-right-from-bracket me-1"></i> Salida</button>
+ <button onclick="setModoOrient('Entrada')" id="btn-orient-entrada" class="btn btn-success px-3 py-2 fw-semibold shadow-sm small">Entrada</button>
+ <button onclick="setModoOrient('Salida')" id="btn-orient-salida" class="btn btn-outline-dark bg-white px-3 py-2 fw-semibold shadow-sm small">Salida</button>
  </div>
  <div class="camera-box-ref mb-2 border shadow-sm">
- <div class="cam-ph text-center text-warning"><i class="fa-solid fa-qrcode fa-2x mb-1"></i><span class="d-block small">Escáner apagado</span></div>
+ <div class="cam-ph text-center text-warning"><span class="d-block small">Escáner apagado</span></div>
  <div id="cam-orient" style="width:100%"></div>
  </div>
  <div id="res-cam-orient" class="res-scan mb-2"></div>
- <div id="aviso-camara-bloqueada" class="small text-danger fw-semibold mb-2 d-none"><i class="fa-solid fa-lock me-1"></i> Necesitas autorización de Control Escolar para usar la cámara.</div>
- <button onclick="activarCamaraOrientador()" id="btn-activar-camara-orientador" class="btn btn-vinotinto px-4 py-2 rounded-pill shadow-sm small btn-accion-restringida"><i class="fa-solid fa-camera me-1"></i> Activar Cámara</button>
+ <div id="aviso-camara-bloqueada" class="small text-danger fw-semibold mb-2 d-none">Necesitas autorización de Control Escolar para usar la cámara.</div>
+ <button onclick="activarCamaraOrientador()" id="btn-activar-camara-orientador" class="btn btn-vinotinto px-4 py-2 rounded-pill shadow-sm small btn-accion-restringida">Activar Cámara</button>
  <button onclick="detener('cam-orient')" class="btn btn-dark py-2 px-3 rounded-pill small">Apagar</button>
  </div>
  <div class="row g-3 mb-4 bg-light p-3 rounded-3 border">
@@ -455,8 +455,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
  <h6 class="fw-bold m-0" id="titulo-tabla-orientador">Turno Matutino</h6>
  <div class="d-flex gap-2 flex-wrap">
- <button onclick="descargarReporte('Excel')" class="btn btn-success px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida"><i class="fa-solid fa-file-excel me-1"></i> Descargar Excel</button>
- <button onclick="descargarReporte('PDF')" class="btn btn-danger px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida"><i class="fa-solid fa-file-pdf me-1"></i> Descargar PDF</button>
+ <button onclick="descargarReporte('Excel')" class="btn btn-success px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida">Descargar Excel</button>
+ <button onclick="descargarReporte('PDF')" class="btn btn-danger px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida">Descargar PDF</button>
  </div>
  </div>
  <div class="table-responsive bg-white rounded-3 p-2 border shadow-sm mb-4">
@@ -468,7 +468,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </div>
 <!-- ===== 4. CONTROL ESCOLAR ===== -->
 <div id="panel-control" class="panel-perfil d-none">
- <div class="alert alert-warning py-2 mb-3 small fw-semibold"><i class="fa-solid fa-shield-halved me-1"></i>Control Escolar: estadísticas y asignación de permisos. Las listas, los orientadores y los horarios se suben en el <b>Panel de Orientadores</b> (elige turno, grado y grupo).</div>
+ <div class="alert alert-warning py-2 mb-3 small fw-semibold">Control Escolar: estadísticas y asignación de permisos. Las listas, los orientadores y los horarios se suben en el <b>Panel de Orientadores</b> (elige turno, grado y grupo).</div>
  <div class="row text-center mb-4 g-3">
  <div class="col-md-4"><div class="p-3 bg-white rounded-4 border shadow-sm"><span class="text-muted d-block fw-bold small mb-1">TOTAL ALUMNOS</span><h3 class="fw-bold mb-0" id="st-total">0</h3></div></div>
  <div class="col-md-4"><div class="p-3 bg-white rounded-4 border shadow-sm"><span class="text-muted d-block fw-bold small mb-1">ASISTENCIAS DE HOY</span><h3 class="fw-bold text-success mb-0" id="st-asis">0</h3></div></div>
@@ -476,15 +476,15 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="p-4 bg-white rounded-4 border shadow-sm mb-4">
  <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
- <h6 class="fw-bold m-0" style="color:#800020"><i class="fa-solid fa-chart-pie me-2"></i> Gráficas Comparativas y Estadísticas</h6>
+ <h6 class="fw-bold m-0" style="color:#800020">Gráficas Comparativas y Estadísticas</h6>
  <div class="d-flex align-items-center gap-2 flex-wrap">
  <select id="sel-periodo-stats" class="form-select form-select-sm" style="width:auto" onchange="renderStats()">
  <option value="hoy" selected>Hoy</option>
  <option value="semana">Semana</option>
  <option value="mes">Mes</option>
  </select>
- <button onclick="descargarGraficas('Excel')" class="btn btn-success px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida"><i class="fa-solid fa-file-excel me-1"></i> Excel</button>
- <button onclick="descargarGraficas('PDF')" class="btn btn-danger px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida"><i class="fa-solid fa-file-pdf me-1"></i> PDF</button>
+ <button onclick="descargarGraficas('Excel')" class="btn btn-success px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida">Excel</button>
+ <button onclick="descargarGraficas('PDF')" class="btn btn-danger px-4 py-2 fw-semibold shadow-sm small btn-accion-restringida">PDF</button>
  </div>
  </div>
  <p class="text-muted small mb-2" id="subtitulo-periodo-stats">Estadísticas de asistencia -Hoy</p>
@@ -494,7 +494,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
 
 <div id="bloque-permisos-roles" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-user-lock me-2"></i> Permisos y Roles</h6>
+ <h6 class="fw-bold mb-2" style="color:#800020">Permisos y Roles</h6>
  <p class="text-muted small mb-3">Define si el rol solo visualiza o también puede realizar acciones (descargas, marcar salidas, subir listas, editar credenciales, usar la cámara de escaneo).</p>
  <div class="row g-3 align-items-end">
  <div class="col-md-4"><label class="form-label small">Rol</label>
@@ -510,13 +510,13 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <option value="editar">Puede editar / realizar acciones (incluye cámara)</option>
  </select>
  </div>
- <div class="col-md-3"><button onclick="guardarPermisoRol()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button></div>
+ <div class="col-md-3"><button onclick="guardarPermisoRol()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Guardar</button></div>
  </div>
  <div id="resumen-permisos" class="mt-3 small text-muted"></div>
  </div>
 
 <div id="bloque-claves" class="p-4 bg-white rounded-4 border shadow-sm mb-4 d-none">
- <h6 class="fw-bold mb-2" style="color:#800020"><i class="fa-solid fa-key me-2"></i> Contraseñas</h6>
+ <h6 class="fw-bold mb-2" style="color:#800020">Contraseñas</h6>
  <p class="text-muted small mb-3">Control Escolar genera y entrega las contraseñas. Elige un rol; si es orientador con contraseña propia, elige su nombre. Después borra su contraseña, genera una nueva o quita el bloqueo.</p>
  <div class="fw-semibold small mb-2" style="color:#800020">Roles</div>
  <div id="botones-roles-clave" class="d-flex flex-wrap gap-2 mb-2"></div>
@@ -526,8 +526,8 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
    <div><span class="fw-bold" id="panel-titulo"></span> <span id="panel-estado" class="ms-1"></span></div>
    <div class="d-flex flex-wrap gap-2">
-    <button type="button" id="btn-borrar-clave" onclick="borrarClaveCuenta()" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash-can me-1"></i> Borrar contraseña</button>
-    <button type="button" id="btn-desbloquear-clave" onclick="desbloquearCuenta()" class="btn btn-outline-secondary btn-sm d-none"><i class="fa-solid fa-lock-open me-1"></i> Desbloquear sin cambiar</button>
+    <button type="button" id="btn-borrar-clave" onclick="borrarClaveCuenta()" class="btn btn-outline-danger btn-sm">Borrar contraseña</button>
+    <button type="button" id="btn-desbloquear-clave" onclick="desbloquearCuenta()" class="btn btn-outline-secondary btn-sm d-none">Desbloquear sin cambiar</button>
     <button type="button" id="btn-quitar-clave" onclick="quitarClaveOrientador()" class="btn btn-outline-secondary btn-sm d-none" title="El orientador vuelve a entrar con la contraseña general">Quitar propia</button>
    </div>
   </div>
@@ -543,13 +543,13 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
     <input type="password" id="clave-confirmar" class="form-control form-control-sm" autocomplete="new-password" maxlength="72" oninput="revisarRequisitosClave()">
    </div>
    <div class="col-md-4 d-flex gap-2">
-    <button type="button" onclick="generarClave()" class="btn btn-outline-dark btn-sm py-2 text-nowrap" title="Crea una contraseña segura al azar"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar</button>
-    <button type="button" onclick="guardarClave()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold"><i class="fa-solid fa-floppy-disk me-1"></i> Guardar</button>
+    <button type="button" onclick="generarClave()" class="btn btn-outline-dark btn-sm py-2 text-nowrap" title="Crea una contraseña segura al azar">Generar</button>
+    <button type="button" onclick="guardarClave()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Guardar</button>
    </div>
   </div>
   <div class="form-check mt-2 small"><input class="form-check-input" type="checkbox" id="ver-claves" onchange="verClavesNuevas()"><label class="form-check-label" for="ver-claves">Mostrar lo que escribo</label></div>
   <div class="mt-3 p-3 rounded-3 small bg-white" style="border:1px solid #eee">
-   <div class="fw-semibold mb-1" style="color:#800020"><i class="fa-solid fa-circle-info me-1"></i> Cómo hacer una contraseña segura</div>
+   <div class="fw-semibold mb-1" style="color:#800020">Cómo hacer una contraseña segura</div>
    <ul class="list-unstyled mb-2" id="requisitos-clave">
     <li data-req="largo"><span class="marca me-2">○</span>Mínimo 8 caracteres (máximo 72).</li>
     <li data-req="mayus"><span class="marca me-2">○</span>Una letra mayúscula y una minúscula.</li>
@@ -562,12 +562,12 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
    <div class="text-muted">El botón <b>Generar</b> crea una que ya cumple todo. Evita nombres, CURP y fechas de nacimiento, y no repitas la misma contraseña en otro rol.</div>
   </div>
   <div id="entrega-clave" class="mt-3 p-3 rounded-3 d-none" style="background:#eef7f0;border:1px solid #b7dcc0">
-   <div class="fw-semibold mb-1" style="color:#0f5132"><i class="fa-solid fa-hand-holding me-1"></i> Contraseña lista para entregar</div>
+   <div class="fw-semibold mb-1" style="color:#0f5132">Contraseña lista para entregar</div>
    <div class="small mb-2">Para: <b id="entrega-para"></b> · Correo: <span id="entrega-correo"></span></div>
    <div class="d-flex flex-wrap align-items-center gap-2">
     <code id="entrega-clave-texto" class="fs-5 px-3 py-1 bg-white rounded border" style="user-select:all"></code>
-    <button type="button" onclick="copiarEntrega()" class="btn btn-outline-success btn-sm"><i class="fa-regular fa-copy me-1"></i> Copiar</button>
-    <button type="button" onclick="imprimirEntrega()" class="btn btn-outline-success btn-sm"><i class="fa-solid fa-print me-1"></i> Imprimir hoja de entrega</button>
+    <button type="button" onclick="copiarEntrega()" class="btn btn-outline-success btn-sm">Copiar</button>
+    <button type="button" onclick="imprimirEntrega()" class="btn btn-outline-success btn-sm">Imprimir hoja de entrega</button>
     <button type="button" onclick="ocultarEntrega()" class="btn btn-success btn-sm">Ya la entregué</button>
    </div>
    <div class="small text-muted mt-2">Entrégala en persona. Esta es la única vez que se muestra: el sistema solo guarda su versión cifrada.</div>
@@ -577,7 +577,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 </div>
 </div>
 <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
- <button onclick="regresarPanel()" id="btn-regresar-panel" class="btn btn-vinotinto px-4 rounded-pill fw-semibold shadow-sm d-none"><i class="fa-solid fa-arrow-left me-2"></i> Regresar</button>
+ <button onclick="regresarPanel()" id="btn-regresar-panel" class="btn btn-vinotinto px-4 rounded-pill fw-semibold shadow-sm d-none">Regresar</button>
  <button onclick="cerrarSesion()" class="btn btn-dark px-4 rounded-pill fw-semibold shadow-sm ms-auto">Cerrar Sesión</button>
 </div>
 </div>
@@ -585,8 +585,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
 <div id="burbujas-claves" class="burbujas-claves"></div>
 <div id="modal-cuenta" class="modal-cuenta d-none" role="dialog" aria-modal="true" aria-labelledby="modal-cuenta-titulo">
  <div class="modal-cuenta-caja">
-  <div class="modal-cuenta-icono" id="modal-cuenta-icono"><i class="fa-solid fa-lock"></i></div>
-  <h5 id="modal-cuenta-titulo"></h5>
+    <h5 id="modal-cuenta-titulo"></h5>
   <p id="modal-cuenta-texto"></p>
   <div id="modal-cuenta-botones" class="d-flex gap-2 justify-content-center flex-wrap"></div>
  </div>
@@ -665,14 +664,31 @@ function avisoPermiso(mensaje) {
  _ultimoAvisoPermiso = Date.now();
  alert(mensaje || 'No tienes permiso para realizar esta acción.');
 }
+/* fetch con tiempo límite: con señal mala (o sin internet "a medias") una petición puede quedarse esperando
+   para siempre y atorar la cola de escaneos. Pasados los segundos indicados se corta y cuenta como "sin conexión". */
+function fetchT(url, opciones, ms) {
+ if (typeof AbortController === 'undefined') return fetch(url, opciones);
+ const ctl = new AbortController();
+ const reloj = setTimeout(() => ctl.abort(), ms || 12000);
+ return fetch(url, Object.assign({}, opciones, {signal: ctl.signal}))
+  .then(r => { clearTimeout(reloj); return r; }, e => { clearTimeout(reloj); throw e; });
+}
+/* Pide al service worker guardar la página de inicio YA CON la sesión iniciada: así, al abrir el sistema sin
+   internet, entra directo (sin esto aparecía "Sin conexión" si no se había recargado la página con internet). */
+function guardarPaginaOffline() {
+ try {
+  if (!navigator.serviceWorker) return;
+  navigator.serviceWorker.ready.then(reg => { if (reg.active) reg.active.postMessage('guardar-pagina'); }).catch(() => {});
+ } catch (e) {}
+}
 const PEND_TODO = 'sica_epo6_pend_todo';   // marca: hay cambios guardados solo en este equipo (se hicieron sin internet)
 function sincronizarConServidor(accion, datos, reintento) {
  try {
-  fetch('/api/sica/sync', {
+  fetchT('/api/sica/sync', {
    method: 'POST',
    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
    body: JSON.stringify({ accion: accion, datos: datos })
-  }).then(r => {
+  }, 30000).then(r => {
    // 419: el token CSRF venció -> se pide uno nuevo y se reintenta UNA vez
    if (r.status === 419 && !reintento) return refrescarCsrf().then(() => sincronizarConServidor(accion, datos, true));
    if (r.status === 401) { sesionExpirada(); return; }
@@ -715,7 +731,7 @@ function fusionarServidor(s) {
 }
 /* Pide un token CSRF nuevo (cuando la sesión venció, el anterior ya no sirve) */
 function refrescarCsrf() {
- return fetch('/auth/me', {headers:{'Accept':'application/json'}})
+ return fetchT('/auth/me', {headers:{'Accept':'application/json'}}, 8000)
  .then(r => r.json())
  .then(d => { if (d && d.csrf) $('meta[name="csrf-token"]').attr('content', d.csrf); })
  .catch(() => {});
@@ -746,18 +762,18 @@ function sesionExpirada() {
 function cargarDesdeServidor() {
  // Si se hicieron cambios sin internet, primero se envían; así la descarga no los pisa con datos viejos del servidor
  if (!ES_MOVIL && rolActivo && localStorage.getItem(PEND_TODO)) {
-  return fetch('/api/sica/sync', {
+  return fetchT('/api/sica/sync', {
    method: 'POST',
    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
    body: JSON.stringify({ accion: 'guardar_todo', datos: db })
-  }).then(r => { if (r.ok) localStorage.removeItem(PEND_TODO); else if (r.status === 401) sesionExpirada(); })
+  }, 30000).then(r => { if (r.ok) localStorage.removeItem(PEND_TODO); else if (r.status === 401) sesionExpirada(); })
   .catch(() => {})
   .then(() => localStorage.getItem(PEND_TODO) ? null : descargarEstadoServidor());
  }
  return descargarEstadoServidor();
 }
 function descargarEstadoServidor() {
- return fetch('/api/sica/estado', {headers:{'Accept':'application/json'}})
+ return fetchT('/api/sica/estado', {headers:{'Accept':'application/json'}}, 15000)
   .then(r => { if (r.status === 401) { sesionExpirada(); return null; } return r.ok ? r.json() : null; })
   .then(s => {
    if (!s) return;
@@ -766,7 +782,11 @@ function descargarEstadoServidor() {
     orientadorActivo = db.orientadores.find(o => o.id === orientadorActivo.id) || orientadorActivo;
     gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
    }
-   if (rolActivo) renderTabla();
+   if (rolActivo) {
+    renderTabla();
+    // Portal del Alumno: si se está viendo la lista de un grupo, se actualiza (alumnos nuevos que subió otra computadora)
+    if (credSel && !$('#resultado-credencial-box').hasClass('d-none') && !$('#panel-alumno').hasClass('d-none')) selCred(credSel.grado, credSel.grupo);
+   }
    else if (!$('#vista-login').hasClass('d-none') && !$('#select-orientador-login').val()) actualizarCredenciales();
   })
   .catch(() => {});
@@ -932,7 +952,7 @@ function renderListaOrientadores() {
  const c = asignado ? parseClave(asignado[0]) : null;
  const etiqueta = c ? ' (Grado ' + c.grado + ', Grupo ' + c.grupo + ', ' + c.turno + ')' : ' (sin grupo)';
  return '<span class="d-inline-flex align-items-center gap-1 me-3 mb-1">' + esc(o.nombre) + etiqueta +
- ' <button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-1" title="Eliminar orientador"><i class="fa-solid fa-trash"></i></button></span>';
+ ' <button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar orientador">Eliminar</button></span>';
  }).join(''));
 }
 /* Elimina un orientador del servidor y de este navegador. Sus grupos quedan "sin asignar". Solo Control Escolar. */
@@ -1047,6 +1067,7 @@ function intentarEntrar() {
  cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  mostrarSeccion('vista-sistema');
+ guardarPaginaOffline();   // guarda la página con la sesión para poder abrir el sistema sin internet
  });
  })
  .catch(() => {
@@ -1156,7 +1177,7 @@ function llamarClaves(url, metodo, cuerpo, reintento) {
    if (!r.ok && !d.mensaje) d.mensaje = (d.errors && Object.values(d.errors)[0][0]) || d.message || 'No se pudo guardar.';
    return {...d, ok: r.ok && d.ok !== false};
   });
- });
+ }).catch(() => ({ok:false, mensaje:'Sin conexión con el servidor. Inténtalo de nuevo cuando haya internet.'}));   // sin internet: no se queda un error sin capturar
 }
 const NOMBRES_CUENTA = {director: 'Director', subdirector: 'Subdirector', orientador: 'Orientadores · contraseña general', control: 'Control Escolar (mi cuenta)'};
 let clavesRoles = [];        // [{rol, borrada, bloqueada}]
@@ -1201,15 +1222,15 @@ function renderClaves() {
   (o.bloqueada ? '<span class="etq mal">Bloqueada</span>' : o.estado === 'borrada' ? '<span class="etq mal">Sin contraseña</span>' : o.estado === 'propia' ? '<span class="etq bien">Propia</span>' : '<span class="etq">General</span>') + '</button>'
  ).join('') : '<div class="small text-muted p-2">Aún no hay orientadores dados de alta.</div>';
  const personal = '<div class="dd-ori"><button type="button" class="btn-cuenta' + ((menuOriAbierto || oSel) ? ' activa' : '') + alerta(pendientesOri && !oSel, false) + '" onclick="alternarMenuOrientadores()">' +
-  '<i class="fa-solid fa-user-tie"></i> Orientadores · contraseña personal' + (oSel ? ': ' + esc(oSel.nombre) : (pendientesOri ? ' <span class="etq mal">' + pendientesOri + '</span>' : '')) +
-  ' <i class="fa-solid fa-chevron-down" style="font-size:.7rem"></i></button>' +
+  'Orientadores · contraseña personal' + (oSel ? ': ' + esc(oSel.nombre) : (pendientesOri ? ' <span class="etq mal">' + pendientesOri + '</span>' : '')) +
+  ' </button>' +
   '<div class="dd-menu' + (menuOriAbierto ? '' : ' d-none') + '">' + items + '</div></div>';
  $('#botones-roles-clave').html(rolBtn('director') + rolBtn('subdirector') + rolBtn('orientador') + personal + rolBtn('control'));
  // Resumen de cuentas que esperan a Control Escolar
  const esperan = [];
  clavesRoles.forEach(r => { if (r.bloqueada || r.borrada) esperan.push(NOMBRES_CUENTA[r.rol] || r.rol); });
  clavesOrientadores.forEach(o => { if (o.bloqueada || o.estado === 'borrada') esperan.push(o.nombre); });
- $('#resumen-bloqueadas').html(esperan.length ? '<span class="badge bg-danger me-1">' + esperan.length + '</span> Esperan una contraseña nueva: <b>' + esperan.map(esc).join(', ') + '</b>' : '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i> Ninguna cuenta está esperando contraseña.</span>');
+ $('#resumen-bloqueadas').html(esperan.length ? '<span class="badge bg-danger me-1">' + esperan.length + '</span> Esperan una contraseña nueva: <b>' + esperan.map(esc).join(', ') + '</b>' : '<span class="text-success">Ninguna cuenta está esperando contraseña.</span>');
  renderPanelCuenta();
  sincronizarBurbujas();
 }
@@ -1266,7 +1287,7 @@ function sincronizarBurbujas() {
   $('#burbujas-claves').append(
    '<div class="burbuja" role="alert" data-k="' + esc(p.k) + '" data-cuenta="' + esc(p.cuenta) + '">' +
    '<button type="button" class="burbuja-x" aria-label="Cerrar" onclick="$(this).closest(\'.burbuja\').remove()">&times;</button>' +
-   '<div class="fw-bold"><i class="fa-solid fa-key me-1"></i> ' + esc(p.nombre) + ' solicita su nueva contraseña</div>' +
+   '<div class="fw-bold">' + esc(p.nombre) + ' solicita su nueva contraseña</div>' +
    '<div class="small mt-1">Marcó "¿Olvidaste tu contraseña?". Su cuenta quedó bloqueada y no podrá entrar hasta que le des acceso.</div>' +
    '<button type="button" class="btn btn-sm btn-light fw-semibold mt-2" onclick="abrirSolicitud(this)">Dar acceso</button></div>');
  });
@@ -1295,7 +1316,7 @@ function revisarRequisitosClave() {
  $('#requisitos-clave li').each(function () {
   const cumple = ok[$(this).data('req')];
   $(this).toggleClass('text-success fw-semibold', cumple);
-  $(this).find('.marca').text(cumple ? '✔' : '○');
+  $(this).find('.marca').text(cumple ? 'Sí' : 'No');
  });
  return Object.values(ok).every(Boolean);
 }
@@ -1415,23 +1436,20 @@ function abrirModalCuenta(modo, mensaje) {
  const rol = $('#rol-select').val();
  const nombre = rol === 'orientador' ? ($('#select-orientador-login option:selected').text() || 'Orientador') : (nombresRoles[rol] || rol);
  const btn = (txt, cls, fn) => '<button type="button" class="btn ' + cls + ' px-4" onclick="' + fn + '">' + txt + '</button>';
- let titulo, texto, botones, icono = 'fa-lock';
+ let titulo, texto, botones;
  if (modo === 'confirmar') {
   titulo = '¿Olvidaste tu contraseña?';
   texto = 'Avisa a Control Escolar. Tu cuenta (<b>' + esc(nombre) + '</b>) quedará bloqueada automáticamente y no podrás entrar hasta que Control Escolar borre tu contraseña anterior, genere una nueva y te dé acceso otra vez.';
   botones = btn('Avisar a Control Escolar', 'btn-vinotinto', 'confirmarOlvido()');
-  icono = 'fa-circle-question';
  } else if (modo === 'info') {
   titulo = 'Control Escolar';
   texto = mensaje;
   botones = btn('Entendido', 'btn-vinotinto', 'cerrarModalCuenta()');
-  icono = 'fa-circle-info';
  } else {
   titulo = 'Cuenta bloqueada';
   texto = mensaje || 'Avisa a Control Escolar. Mientras tanto no podrás entrar.';
   botones = btn('Entendido', 'btn-vinotinto', 'cerrarModalCuenta()');
  }
- $('#modal-cuenta-icono i').attr('class', 'fa-solid ' + icono);
  $('#modal-cuenta-titulo').text(titulo);
  $('#modal-cuenta-texto').html(modo === 'confirmar' ? texto : esc(texto));
  $('#modal-cuenta-botones').html(botones);
@@ -1525,11 +1543,11 @@ function vaciarCola() {
   if (!it) return terminar(huboExito);
   // Si el escaneo ya esperó (sin internet o en cola), el servidor usa la hora en que se escaneó de verdad
   const diferido = !!it.diferido || (Date.now() - (it.ts || 0) > 60000);
-  fetch('/api/sica/sync', {
+  fetchT('/api/sica/sync', {
    method: 'POST',
    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '' },
    body: JSON.stringify({ accion: 'registrar_asistencia', datos: {curp: it.curp, modo: it.modo, fecha: it.fecha, hora: it.hora, diferido: diferido} })
-  }).then(r => {
+  }, 12000).then(r => {
    if (r.status === 419 && !reintentoCsrf) return refrescarCsrf().then(() => enviar(true, huboExito));
    if (r.status === 401) { terminar(huboExito); sesionExpirada(); return; }   // la cola se conserva hasta volver a iniciar sesión
    if (r.ok) { colaEscaneos.shift(); guardarCola(); return enviar(false, true); }
@@ -1614,7 +1632,7 @@ function aplicarRegistro(a, modo) {
  if (a.curp) encolarEscaneo(a.curp, modo, f, horaAhora());
  save(); renderTabla();
  // El alumno se registra en SU grupo (el de la lista), sea o no del orientador que escanea
- return {ok:true, msg:'✔ ' + modo + ' registrada: ' + a.nombre + ' — ' + etiquetaGrupo(a) + ' (' + horaAhora() + ')' +
+ return {ok:true, msg:modo + ' registrada: ' + a.nombre + ' — ' + etiquetaGrupo(a) + ' (' + horaAhora() + ')' +
   (navigator.onLine === false ? ' · guardada sin internet, se enviará al reconectar' : '')};
 }
 function registrarPorCurp(curp, modo) {
@@ -1634,7 +1652,7 @@ function registrarDesconocido(curp, modo) {
   if (r.ok && d && d.ok) {
    cargarDesdeServidor();   // este equipo descarga al alumno nuevo
    const al = d.alumno || {};
-   return {ok:true, msg:'✔ ' + modo + ' registrada: ' + (al.nombre || curp) + ' — ' + etiquetaGrupo(al) + ' (' + (d.hora || horaAhora()) + ')'};
+   return {ok:true, msg:modo + ' registrada: ' + (al.nombre || curp) + ' — ' + etiquetaGrupo(al) + ' (' + (d.hora || horaAhora()) + ')'};
   }
   if (r.status === 404) return {ok:false, msg:'QR no reconocido: ' + curp};
   if (r.status === 401) { sesionExpirada(); return {ok:false, msg:'Tu sesión expiró. Inicia sesión de nuevo.'}; }
@@ -1718,7 +1736,7 @@ function renderTabla() {
  const f = $('#calendario-orientador').val() || hoy(), q = norm($('#buscador-alumno').val());
  const rows = filtrados().filter(a => norm(a.nombre).includes(q)).map(a => {
  const r = a.reg[f] || {}, e = estatusDe(a, r, f), dis = (!r.entrada || r.salida || f !== hoy()) ? 'disabled' : '';
- return `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td>${a.grado}</td><td>${a.grupo}</td><td>${r.entrada || '—'}</td><td>${r.salida || 'Pendiente'}</td><td>${permDe(r)}</td><td><span class="badge ${claseEst[e]}">${e}</span></td><td class="text-center"><button data-c="${esc(a.id)}" onclick="marcarSalida(this.dataset.c)" class="btn btn-outline-dark btn-sm btn-accion-restringida" ${dis}><i class="fa-solid fa-door-open me-1"></i> Marcar Salida</button></td></tr>`;
+ return `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td>${a.grado}</td><td>${a.grupo}</td><td>${r.entrada || '—'}</td><td>${r.salida || 'Pendiente'}</td><td>${permDe(r)}</td><td><span class="badge ${claseEst[e]}">${e}</span></td><td class="text-center"><button data-c="${esc(a.id)}" onclick="marcarSalida(this.dataset.c)" class="btn btn-outline-dark btn-sm btn-accion-restringida" ${dis}>Marcar Salida</button></td></tr>`;
  }).join('') || '<tr><td colspan="9" class="text-center text-muted py-3">Sin alumnos. Control Escolar debe subir la lista de este grupo.</td></tr>';
  $('#tabla-cuerpo-orientador').html(rows);
  if (rolActivo) aplicarPermisosSolo();
@@ -2107,7 +2125,7 @@ function selCred(grado, grupo) {
  $('#titulo-grupo-credencial').text('Credenciales Digitales - ' + nomGrado[grado] + ' ' + grupo + ' (' + turnoCred + ')');
  $('#badge-plantilla').text('Plantilla ' + turnoCred);
  $('#vista-editar-credencial-individual').addClass('d-none'); $('#resultado-credencial-box').removeClass('d-none');
- $('#tabla-alumnos-credencial').html(alumnosCred().map(a => `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="verCredencial(this.dataset.c)" class="btn btn-vinotinto btn-sm py-1 px-3"><i class="fa-solid fa-id-card me-1"></i> Ver Credencial</button> <button data-c="${esc(a.id)}" onclick="eliminarAlumno(this.dataset.c)" class="btn btn-outline-danger btn-sm py-1 px-2" title="Eliminar alumno"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-3">Este grupo aún no tiene alumnos en este turno. Control Escolar debe subir la lista.</td></tr>');
+ $('#tabla-alumnos-credencial').html(alumnosCred().map(a => `<tr><td>${a.curp ? '<code>'+esc(a.curp)+'</code>' : '<span class="badge bg-secondary">Sin CURP</span>'}</td><td>${esc(a.nombre)}</td><td class="text-center"><button data-c="${esc(a.id)}" onclick="verCredencial(this.dataset.c)" class="btn btn-vinotinto btn-sm py-1 px-3">Ver Credencial</button> <button data-c="${esc(a.id)}" onclick="eliminarAlumno(this.dataset.c)" class="btn btn-outline-danger btn-sm py-1 px-3" title="Eliminar alumno">Eliminar</button></td></tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-3">Este grupo aún no tiene alumnos en este turno. Control Escolar debe subir la lista.</td></tr>');
 }
 function verCredencial(id) {
  const a = db.alumnos.find(x => x.id === id); idEditando = id;
@@ -2290,6 +2308,7 @@ function restaurarSesion(S) {
  cargarDesdeServidor().then(() => {
  if (orientadorActivo) gruposDelOrientador = calcularGruposOrientador(orientadorActivo.id);
  if (!rolActivo) mostrarSeccion('vista-sistema');
+ guardarPaginaOffline();
  vaciarCola();   // si quedaron escaneos pendientes de otra vez, se envían ahora
  });
 }
@@ -2300,9 +2319,9 @@ $(function () {
  actualizarCredenciales();
  $('#calendario-orientador').val(hoy());
  if (window.SICA_SESION) restaurarSesion(window.SICA_SESION);   // solo pide datos al servidor si hay sesión (cero errores 401 al abrir)
- // Todos los equipos consultan al servidor (computadoras cada 5 s, teléfonos cada 10 s) para ver los mismos datos;
+ // Todos los equipos consultan al servidor (computadoras cada 3 s, teléfonos cada 5 s) para ver los mismos datos;
  // se pausa si la pestaña está oculta para no gastar datos ni servidor
- setInterval(() => { if (rolActivo && !document.hidden) cargarDesdeServidor(); }, ES_MOVIL ? 10000 : 5000);
+ setInterval(() => { if (rolActivo && !document.hidden) cargarDesdeServidor(); }, ES_MOVIL ? 5000 : 3000);
  // Reintenta enviar los escaneos que quedaron esperando por falta de internet
  setInterval(() => { if (rolActivo && colaEscaneos.length) vaciarCola(); }, 15000);
  pintarIndicadorCola();

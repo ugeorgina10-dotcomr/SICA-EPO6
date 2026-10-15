@@ -5,7 +5,7 @@
  *   - /api y /auth NUNCA se guardan: siempre van al servidor (los datos viven en la base de datos).
  * Si cambias algo en /vendor, sube el número de VERSION para que los equipos descarguen la copia nueva.
  */
-const VERSION = 'sica-v1';
+const VERSION = 'sica-v2';
 const C_ESTATICOS = VERSION + '-estaticos';
 const C_PAGINAS = VERSION + '-paginas';
 
@@ -26,6 +26,10 @@ const PRECARGA = [
   '/vendor/pdf.worker.min.js',
   '/img/logo6.png',
   '/img/epo6.png',
+  '/img/plantillamatutinofrente.png',
+  '/img/trantillamatutinoreverso.png',
+  '/img/plantillavespertinofrente.jpg',
+  '/img/trantillavespertinoreverso.png',
   '/manifest.webmanifest'
 ];
 
@@ -46,8 +50,17 @@ self.addEventListener('activate', e => {
 });
 
 // Al cerrar sesión la página avisa para borrar la copia guardada (trae el nombre/rol de quien la abrió)
+// Al iniciar sesión (o al abrir con sesión) avisa para guardar la copia YA CON la sesión: así, si luego
+// se abre sin internet, entra directo al sistema en vez de mostrar "Sin conexión".
 self.addEventListener('message', e => {
   if (e.data === 'limpiar-paginas') e.waitUntil(caches.delete(C_PAGINAS));
+  if (e.data === 'guardar-pagina') {
+    e.waitUntil(
+      fetch('/', { credentials: 'same-origin', cache: 'no-store' }).then(res => {
+        if (res.ok && !res.redirected) return caches.open(C_PAGINAS).then(c => c.put('/', res));
+      }).catch(() => {})
+    );
+  }
 });
 
 self.addEventListener('fetch', e => {
@@ -88,13 +101,16 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Imágenes (las plantillas se pueden reemplazar): muestra la guardada y actualiza en segundo plano
+  // Imágenes (las plantillas se pueden reemplazar): primero el servidor (así se ve la plantilla nueva),
+  // y si no hay internet, la última copia guardada. La página las pide con ?v=<hora>; aquí se guardan
+  // por su ruta (sin el parámetro) para que sirvan sin internet y no se acumulen copias.
   if (url.pathname.startsWith('/img/')) {
+    const clave = new Request(url.origin + url.pathname);
     e.respondWith(
-      caches.open(C_ESTATICOS).then(c => c.match(req).then(r => {
-        const red = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => r);
-        return r || red;
-      }))
+      fetch(req).then(res => {
+        if (res.ok) { const copia = res.clone(); caches.open(C_ESTATICOS).then(c => c.put(clave, copia)); }
+        return res;
+      }).catch(() => caches.open(C_ESTATICOS).then(c => c.match(clave)).then(r => r || Response.error()))
     );
   }
 });
