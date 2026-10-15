@@ -318,7 +318,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  <div class="col-6 text-center">
  <span class="d-block small text-muted mb-1">Reverso</span>
- <canvas id="preview-canvas-reverso" width="380" height="235" class="preview-credencial"></canvas>
+ <canvas id="preview-canvas-reverso" width="380" height="258" class="preview-credencial"></canvas>
  </div>
  </div>
  </div>
@@ -2268,7 +2268,7 @@ function pintarCredencialCanvas(canvas, a, lado, onListo) {
  usando un canvas oculto de alta resolución (para que se vea nítido al imprimir). */
 function generarImagenesCredencialPDF(a, cb) {
  const cFrente = document.createElement('canvas'); cFrente.width = 950; cFrente.height = 645;
- const cReverso = document.createElement('canvas'); cReverso.width = 950; cReverso.height = 587;
+ const cReverso = document.createElement('canvas'); cReverso.width = 950; cReverso.height = 645;
  let listos = 0;
  const revisar = () => { if (++listos === 2) cb(cFrente.toDataURL('image/png'), cReverso.toDataURL('image/png')); };
  pintarCredencialCanvas(cFrente, a, 'frente', revisar);
