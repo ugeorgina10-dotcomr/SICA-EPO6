@@ -397,8 +397,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores (con su grado, grupo y turno) -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020">Subir Lista de Orientadores</h6>
- <p class="text-muted small mb-2">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con <b>una fila por orientador(a)</b> y estas columnas: <b>Nombre completo</b>, <b>Grado</b> (1, 2 o 3), <b>Grupo</b> (1 al 4) y <b>Turno</b> (Matutino o Vespertino; es opcional, si no lo pones se usa el turno que tienes activo arriba). Al subir el archivo, cada orientador(a) <b>queda asignado a ese grado, grupo y turno</b>.</p>
- <p class="text-muted small mb-3">Ejemplo de fila: <code>Ana López Ruiz | 1 | 2 | Matutino</code>. En un PDF escribe cada orientador en una línea: <code>Ana López Ruiz 1 2 Matutino</code>. Si solo traes los nombres, se dan de alta sin grupo y los asignas en el bloque de horario de abajo.</p>
+ <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con <b>una fila por orientador(a)</b> y estas columnas: <b>Nombre completo</b>, <b>Grado</b> (1, 2 o 3), <b>Grupo</b> (1 al 4) y <b>Turno</b> (Matutino o Vespertino; es opcional, si no lo pones se usa el turno que tienes activo arriba). Al subir el archivo, cada orientador(a) <b>queda asignado a ese grado, grupo y turno</b>.</p>
  <div class="row g-3 align-items-end mb-2">
  <div class="col-md-8"><label class="form-label small">Archivo</label><input type="file" id="archivo-orientadores" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
  <div class="col-md-4"><button onclick="subirOrientadores()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Subir Orientadores</button></div>
@@ -426,7 +425,7 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  <!-- SOLO CONTROL ESCOLAR: horario de entrada/salida y orientador del grupo -->
  <div id="bloque-horario-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020">Horario y Orientador(a) del Grupo</h6>
- <p class="text-muted small mb-3">Define la hora límite de entrada (para marcar retardo), la hora de cierre (para marcar permanencia) y el orientador(a) del grado, grupo y turno seleccionados arriba. El horario y el orientador son independientes en cada turno. Un orientador(a) ya asignado a otro grupo aparece bloqueado aquí para evitar duplicar su asignación.</p>
+ <p class="text-muted small mb-3">Define la hora límite de entrada (para marcar retardo), la hora de cierre (para marcar permanencia) y el orientador(a) del grado, grupo y turno seleccionados arriba. El horario y el orientador son independientes en cada turno. Un orientador(a) puede tener varios grupos: basta elegirlo en cada uno. Para cambiar al orientador(a) de un grupo, elige otro aquí y guarda.</p>
  <div class="row g-3 align-items-end mb-3">
  <div class="col-md-3"><label class="form-label small">Hora límite de entrada</label><input type="time" id="horario-entrada-limite" class="form-control form-control-sm"></div>
  <div class="col-md-3"><label class="form-label small">Hora de cierre (salida)</label><input type="time" id="horario-salida-limite" class="form-control form-control-sm"></div>
@@ -997,16 +996,9 @@ function subirOrientadores() {
    const etiqueta = f.grado + '° grado, grupo ' + f.grupo + ' (' + turno + ')';
    const h = db.horarios[clave] || {entrada: '', salida: '', orientadorId: ''};
    if (h.orientadorId === o.id) { iguales++; return; }
-   if (h.orientadorId) {
+   if (h.orientadorId) {   // el grupo ya tenía otro orientador: se cambia por este
     const otro = db.orientadores.find(x => x.id === h.orientadorId);
-    avisos.push(f.nombre + ': ' + etiqueta + ' ya tiene a ' + (otro ? otro.nombre : 'otro orientador(a)') + '. No se cambió.');
-    return;
-   }
-   const ocupado = Object.entries(db.horarios).find(([k, v]) => v.orientadorId === o.id && k !== clave);
-   if (ocupado) {
-    const c = parseClave(ocupado[0]);
-    avisos.push(f.nombre + ': ya está asignado a ' + c.grado + '° grado, grupo ' + c.grupo + ' (' + c.turno + '). No se cambió.');
-    return;
+    avisos.push(etiqueta + ': cambió de ' + (otro ? otro.nombre : 'otro orientador(a)') + ' a ' + f.nombre + '.');
    }
    h.orientadorId = o.id;
    db.horarios[clave] = h;   // si el grupo ya tenía horario, se conserva
@@ -1029,13 +1021,42 @@ function renderListaOrientadores() {
  const abierta = caja.find('details').prop('open');   // si estaba abierta, sigue abierta después de eliminar
  if (!db.orientadores.length) { caja.html('<span class="text-muted">Aún no hay orientadores dados de alta.</span>'); return; }
  const filas = db.orientadores.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(o => {
-  const grupos = Object.entries(db.horarios).filter(([k, v]) => v.orientadorId === o.id)
-   .map(([k]) => { const c = parseClave(k); return c.grado + '° grado, grupo ' + c.grupo + ' · ' + c.turno; });
+  const chips = Object.entries(db.horarios).filter(([k, v]) => v.orientadorId === o.id).map(([k]) => { const c = parseClave(k);
+   return '<span class="badge bg-light text-dark border me-1 mb-1">' + c.grado + '° grado, grupo ' + c.grupo + ' · ' + c.turno +
+    ' <a href="#" class="text-danger text-decoration-none ms-1" title="Quitar de este grupo" data-o="' + esc(o.id) + '" data-k="' + esc(k) + '" onclick="quitarGrupoOrientador(this.dataset.o, this.dataset.k); return false;">&times;</a></span>'; });
   return '<div class="ori-item"><div><div class="fw-semibold">' + esc(o.nombre) + '</div>' +
-   '<div class="small ' + (grupos.length ? 'text-muted' : 'text-danger') + '">' + esc(grupos.length ? grupos.join(' | ') : 'Sin grupo asignado') + '</div></div>' +
-   '<button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar orientador">Eliminar</button></div>';
+   '<div class="small ' + (chips.length ? '' : 'text-danger') + '">' + (chips.length ? chips.join('') : 'Sin grupo asignado') + '</div></div>' +
+   '<div class="d-flex gap-1 flex-shrink-0"><button type="button" data-o="' + esc(o.id) + '" onclick="editarOrientador(this.dataset.o)" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Cambiar el nombre">Editar</button>' +
+   '<button type="button" data-o="' + esc(o.id) + '" onclick="eliminarOrientador(this.dataset.o)" class="btn btn-outline-danger btn-sm py-0 px-2" title="Eliminar orientador">Eliminar</button></div></div>';
  }).join('');
  caja.html('<details class="ori-desplegable"' + (abierta ? ' open' : '') + '><summary>Ver orientadores dados de alta (' + db.orientadores.length + ')</summary><div class="ori-lista">' + filas + '</div></details>');
+}
+/* Quita a un orientador de UN grupo (conserva el horario del grupo y sus demás grupos). */
+function quitarGrupoOrientador(id, clave) {
+ if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede cambiar las asignaciones.'); return; }
+ const h = db.horarios[clave]; if (!h || h.orientadorId !== id) return;
+ const c = parseClave(clave), o = db.orientadores.find(x => x.id === id);
+ if (!confirm('¿Quitar a ' + (o ? o.nombre : 'este orientador(a)') + ' del ' + c.grado + '° grado, grupo ' + c.grupo + ' (' + c.turno + ')? El grupo quedará sin orientador.')) return;
+ h.orientadorId = '';
+ save(); renderListaOrientadores(); poblarSelectOrientadorHorario(); refrescarHorarioForm(); renderTabla();
+}
+/* Cambia el nombre de un orientador (en el servidor y en este navegador). Conserva sus grupos y su contraseña. */
+function editarOrientador(id) {
+ if (rolActivo !== 'control') { alert('Solo el Encargado de Control Escolar puede editar orientadores.'); return; }
+ const o = db.orientadores.find(x => x.id === id); if (!o) return;
+ const nuevo = (prompt('Nombre completo del orientador(a):', o.nombre) || '').replace(/\s+/g, ' ').trim();
+ if (!nuevo || nuevo === o.nombre) return;
+ if (db.orientadores.some(x => x.id !== id && norm(x.nombre) === norm(nuevo))) { alert('Ya existe un orientador(a) con ese nombre.'); return; }
+ fetch('/api/sica/sync', {
+ method: 'POST',
+ headers: {'Content-Type':'application/json', 'Accept':'application/json', 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || ''},
+ body: JSON.stringify({accion:'renombrar_orientador', datos:{id:o.id, nombre_anterior:o.nombre, nombre:nuevo}})
+ }).then(r => r.json().catch(() => ({})).then(d => { if (!r.ok || d.ok === false) return Promise.reject(d.mensaje || ''); }))
+ .then(() => {
+ o.nombre = nuevo;
+ localStorage.setItem(LS, JSON.stringify(db));
+ renderListaOrientadores(); poblarSelectOrientadorHorario(); renderTabla();
+ }).catch(m => alert(m || 'No se pudo cambiar el nombre en el servidor. Revisa tu conexión e inténtalo de nuevo.'));
 }
 /* Elimina un orientador del servidor y de este navegador. Sus grupos quedan "sin asignar". Solo Control Escolar. */
 function eliminarOrientador(id) {
@@ -1062,23 +1083,21 @@ function calcularGruposOrientador(orientadorId) {
  .filter(([k, v]) => v.orientadorId === orientadorId)
  .map(([k]) => parseClave(k));
 }
-/* Orientadores ya asignados a OTRO grupo/turno distinto al que se está editando (para bloquearlos) */
-function orientadoresBloqueadosParaGrupo(claveActual) {
- const ocupados = {};
- Object.entries(db.horarios).forEach(([k, v]) => { if (v.orientadorId && k !== claveActual) ocupados[v.orientadorId] = k; });
- return ocupados;
+/* Grupos (todos) que ya tiene cada orientador, para mostrarlo en la lista. Un orientador puede tener varios grupos. */
+function gruposDeOrientadores(claveActual) {
+ const m = {};
+ Object.entries(db.horarios).forEach(([k, v]) => { if (v.orientadorId && k !== claveActual) (m[v.orientadorId] = m[v.orientadorId] || []).push(k); });
+ return m;
 }
 function poblarSelectOrientadorHorario() {
  const sel = $('#orientador-grupo-select');
  const claveAct = filtro ? claveGrupo(filtro.grado, filtro.grupo, turnoActivo) : '';
  const actualId = filtro ? (db.horarios[claveAct] || {}).orientadorId : '';
- const ocupados = filtro ? orientadoresBloqueadosParaGrupo(claveAct) : {};
+ const otros = filtro ? gruposDeOrientadores(claveAct) : {};
  let html = '<option value="">Sin asignar</option>';
- db.orientadores.forEach(o => {
- const bloqueado = ocupados[o.id] && o.id !== actualId;
- const c = bloqueado ? parseClave(ocupados[o.id]) : null;
- html += '<option value="' + esc(o.id) + '" ' + (bloqueado ? 'disabled' : '') + '>' + esc(o.nombre) +
- (bloqueado ? ' (ya asignado: Grado ' + c.grado + ' Grupo ' + c.grupo + ', ' + c.turno + ')' : '') + '</option>';
+ db.orientadores.slice().sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')).forEach(o => {
+ const extra = (otros[o.id] || []).map(k => { const c = parseClave(k); return c.grado + '°' + c.grupo + ' ' + c.turno.slice(0, 3) + '.'; });
+ html += '<option value="' + esc(o.id) + '">' + esc(o.nombre) + (extra.length ? ' (también en: ' + extra.join(', ') + ')' : '') + '</option>';
  });
  sel.html(html);
  sel.val(actualId || '');
