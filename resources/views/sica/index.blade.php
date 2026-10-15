@@ -394,10 +394,11 @@ body.modo-movil #bloque-camara-orientador .btn{width:100%;margin-bottom:.5rem;pa
  </div>
  </div>
  </div>
- <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores (solo nombres) -->
+ <!-- SOLO CONTROL ESCOLAR: dar de alta a los orientadores (con su grado, grupo y turno) -->
  <div id="bloque-orientadores-control" class="p-3 bg-light rounded-4 border shadow-sm mb-4 d-none">
  <h6 class="fw-bold mb-2" style="color:#800020">Subir Lista de Orientadores</h6>
- <p class="text-muted small mb-3">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con el <b>nombre completo de cada orientador(a)</b>, uno por fila o por línea. Después, asígnalos a un grado, grupo y turno en el bloque de horario de abajo.</p>
+ <p class="text-muted small mb-2">Excel, CSV o PDF (.xlsx/.xls/.csv/.pdf) con <b>una fila por orientador(a)</b> y estas columnas: <b>Nombre completo</b>, <b>Grado</b> (1, 2 o 3), <b>Grupo</b> (1 al 4) y <b>Turno</b> (Matutino o Vespertino; es opcional, si no lo pones se usa el turno que tienes activo arriba). Al subir el archivo, cada orientador(a) <b>queda asignado a ese grado, grupo y turno</b>.</p>
+ <p class="text-muted small mb-3">Ejemplo de fila: <code>Ana López Ruiz | 1 | 2 | Matutino</code>. En un PDF escribe cada orientador en una línea: <code>Ana López Ruiz 1 2 Matutino</code>. Si solo traes los nombres, se dan de alta sin grupo y los asignas en el bloque de horario de abajo.</p>
  <div class="row g-3 align-items-end mb-2">
  <div class="col-md-8"><label class="form-label small">Archivo</label><input type="file" id="archivo-orientadores" class="form-control form-control-sm" accept=".xlsx,.xls,.csv,.pdf"></div>
  <div class="col-md-4"><button onclick="subirOrientadores()" class="btn btn-vinotinto btn-sm w-100 py-2 fw-semibold">Subir Orientadores</button></div>
@@ -974,26 +975,51 @@ function leerFilaOrientador(r) {
  }
  return {nombre: nombre.replace(/\s+/g, ' ').trim(), grado: grado, grupo: grupo, turno: turno};
 }
-/* Alta de orientadores: el archivo solo trae nombres (uno por fila o por línea). El grupo se asigna en el bloque de horario. */
 function subirOrientadores() {
  if (!permisoPermite()) return;
  const file = $('#archivo-orientadores')[0].files[0];
- if (!file) { alert('Selecciona un archivo con los nombres de los orientadores.'); return; }
+ if (!file) { alert('Selecciona un archivo con los orientadores (nombre, grado, grupo y turno).'); return; }
  if (!/\.(xlsx|xls|csv|pdf)$/i.test(file.name)) { alert('Usa un archivo Excel (.xlsx/.xls), .csv o .pdf.'); return; }
  leerFilasDesdeArchivo(file, rows => {
   rows = rows.filter(r => r[0] && String(r[0]).trim());
-  if (rows.length && /^\s*(nombre|orientador)/i.test(String(rows[0][0]))) rows.shift();
-  let nuevos = 0, existentes = 0;
+  if (rows.length && /nombre|orientador/i.test(rows[0][0])) rows.shift();
+  let nuevos = 0, existentes = 0, asignados = 0, iguales = 0;
+  const avisos = [];
   rows.forEach(r => {
-   const nombre = String(r[0]).replace(/\s+/g, ' ').trim();
-   if (!nombre) return;
-   if (db.orientadores.find(x => norm(x.nombre) === norm(nombre))) existentes++;
-   else { db.orientadores.push({id: generarId(), nombre: nombre}); nuevos++; }
+   const f = leerFilaOrientador(r);
+   if (!f.nombre) return;
+   let o = db.orientadores.find(x => norm(x.nombre) === norm(f.nombre));
+   if (o) existentes++; else { o = {id: generarId(), nombre: f.nombre}; db.orientadores.push(o); nuevos++; }
+   if (!f.grado && !f.grupo) return;   // solo trae el nombre: queda sin grupo
+   if (f.grado < 1 || f.grado > 3 || f.grupo < 1 || f.grupo > 4) { avisos.push(f.nombre + ': grado o grupo no válido (grado 1 a 3, grupo 1 a 4); quedó sin grupo.'); return; }
+   const turno = f.turno || turnoActivo;
+   const clave = claveGrupo(f.grado, f.grupo, turno);
+   const etiqueta = f.grado + '° grado, grupo ' + f.grupo + ' (' + turno + ')';
+   const h = db.horarios[clave] || {entrada: '', salida: '', orientadorId: ''};
+   if (h.orientadorId === o.id) { iguales++; return; }
+   if (h.orientadorId) {
+    const otro = db.orientadores.find(x => x.id === h.orientadorId);
+    avisos.push(f.nombre + ': ' + etiqueta + ' ya tiene a ' + (otro ? otro.nombre : 'otro orientador(a)') + '. No se cambió.');
+    return;
+   }
+   const ocupado = Object.entries(db.horarios).find(([k, v]) => v.orientadorId === o.id && k !== clave);
+   if (ocupado) {
+    const c = parseClave(ocupado[0]);
+    avisos.push(f.nombre + ': ya está asignado a ' + c.grado + '° grado, grupo ' + c.grupo + ' (' + c.turno + '). No se cambió.');
+    return;
+   }
+   h.orientadorId = o.id;
+   db.horarios[clave] = h;   // si el grupo ya tenía horario, se conserva
+   asignados++;
   });
   save();
   poblarSelectOrientadorHorario();
   renderListaOrientadores();
-  $('#resumen-orientadores').text('Orientadores nuevos: ' + nuevos + '. Ya existían: ' + existentes + '. Asígnalos a su grupo en el bloque de horario de abajo.');
+  refrescarHorarioForm();
+  renderTabla();
+  let html = 'Orientadores nuevos: ' + nuevos + '. Ya existían: ' + existentes + '. Asignados a un grupo: ' + asignados + (iguales ? '. Ya estaban en ese grupo: ' + iguales : '') + '.';
+  if (avisos.length) html += '<div class="text-danger mt-1"><b>Revisa:</b><br>' + avisos.map(esc).join('<br>') + '</div>';
+  $('#resumen-orientadores').html(html);
   $('#archivo-orientadores').val('');
  }, msg => alert(msg));
 }
