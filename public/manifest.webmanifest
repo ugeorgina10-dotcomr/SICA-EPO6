@@ -1,0 +1,15 @@
+{
+  "name": "SICA-EPO6",
+  "short_name": "SICA-EPO6",
+  "description": "Sistema de Identificación y Control de Acceso — E.P.O. Núm. 6",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#800020",
+  "lang": "es",
+  "icons": [
+    { "src": "/img/logo6.png", "sizes": "424x413", "type": "image/png", "purpose": "any" }
+  ]
+}
